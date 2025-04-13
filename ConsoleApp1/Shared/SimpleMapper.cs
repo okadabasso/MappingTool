@@ -20,23 +20,24 @@ namespace ConsoleApp1.Shared
         private static ConcurrentDictionary<(Type, Type), List<Action<TSource, TDestination>>> _assignCache
             = new ConcurrentDictionary<(Type, Type), List<Action<TSource, TDestination>>>();
         
-        Dictionary<string, Func<TSource, object>> _getters;
-        Dictionary<string, Action<TDestination, object>> _setters;
-        List<Action<TSource, TDestination>> _assigns;
+        private static Dictionary<string, Func<TSource, object>> _getters;
+        private static Dictionary<string, Action<TDestination, object>> _setters;
+        private static List<Action<TSource, TDestination>> _assigns;
+        private static Action<TSource, TDestination> _assignAction;
 
         private static Func<TDestination> _destinationConstructor;
         private static Func<TSource, TDestination> _destinationInit;
 
-        private static Type sourceType = typeof(TSource);
-        private static Type destinationType = typeof(TDestination);
+        private static Type _sourceType = typeof(TSource);
+        private static Type _destinationType = typeof(TDestination);
 
         static SimpleMapper()
         {
             // コンストラクタでキャッシュを初期化
-            var getters = GetPropertyGetter(typeof(TSource));
-            var setters = GetPropertySetter(typeof(TDestination));
-            var assigns = GetPropertyAssign();
-
+            _getters = GetPropertyGetter(typeof(TSource));
+            _setters = GetPropertySetter(typeof(TDestination));
+            _assigns = GetPropertyAssign();
+            _assignAction = CreatePropertyAssign2();
             _destinationConstructor = CreateDestinationConstructor();
             _destinationInit = CreateDestinationInit();
         }
@@ -47,13 +48,13 @@ namespace ConsoleApp1.Shared
         public void Map(TSource source, TDestination destination)
         {
 
-            foreach (var sourceProperty in sourceType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            foreach (var sourceProperty in _sourceType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
                 var value = sourceProperty.GetValue(source, null);
                 if (value != null)
                 {
-                    var destinationProperty = destinationType.GetProperty(sourceProperty.Name);
-                    if (destinationProperty != null)
+                    var destinationProperty = _destinationType.GetProperty(sourceProperty.Name);
+                    if (destinationProperty != null && destinationProperty.CanWrite)
                     {
                         destinationProperty.SetValue(destination, value, null);
                     }
@@ -62,37 +63,24 @@ namespace ConsoleApp1.Shared
         }
         public void Map2(TSource source, TDestination destination)
         {
-            var getters = GetPropertyGetter(sourceType);
-            var setters = GetPropertySetter(destinationType);
-
-            foreach (var getter in getters)
+            foreach (var getter in _getters)
             {
                 var value = getter.Value(source);
-                if (setters.ContainsKey(getter.Key))
+                if (_setters.ContainsKey(getter.Key))
                 {
-                    var setter = setters[getter.Key];
+                    var setter = _setters[getter.Key];
                     setter(destination, value);
                 }
             }
         }
         public void Map3(TSource source, TDestination destination)
         {
-            var assigns = GetPropertyAssign();
-
-            foreach (var assign in assigns)
-            {
-                assign(source, destination);
-            }
+            _assignAction(source, destination);
         }
         public TDestination Map4(TSource source)
         {
             var destination = _destinationConstructor();
-            var assigns = GetPropertyAssign();
-
-            foreach (var assign in assigns)
-            {
-                assign(source, destination);
-            }
+            _assignAction(source, destination);
             return destination;
         }
         public TDestination Map5(TSource source)
@@ -134,29 +122,29 @@ namespace ConsoleApp1.Shared
                 var map = new Dictionary<string, Action<TDestination, object>>();
                 foreach (var property in properties)
                 {
-                    var setter = CreatePropertySetter(property);
-
-                    map[property.Name] = setter;
+                    if (property.CanWrite)
+                    {
+                        var setter = CreatePropertySetter(property);
+                        map[property.Name] = setter;
+                    }
                 }
                 return map;
             });
         }
         private static List<Action<TSource, TDestination>> GetPropertyAssign()
         {
-            return _assignCache.GetOrAdd((sourceType, destinationType), types =>
+            return _assignCache.GetOrAdd((_sourceType, _destinationType), types =>
             {
                 var properties = types.Item1.GetProperties(BindingFlags.Public | BindingFlags.Instance);
                 var map = new List<Action<TSource, TDestination>>();
                 foreach (var sourceProperty in properties)
                 {
                     var destinationProperty = types.Item2.GetProperty(sourceProperty.Name);
-                    if(destinationProperty == null)
+                    if(destinationProperty != null && destinationProperty.CanWrite)
                     {
-                        continue;
+                        var assign = CreatePropertyAssign(sourceProperty, destinationProperty);
+                        map.Add(assign);
                     }
-                    var assign = CreatePropertyAssign(sourceProperty, destinationProperty);
-
-                    map.Add(assign);
                 }
                 return map;
             });
@@ -164,7 +152,7 @@ namespace ConsoleApp1.Shared
         private static Func<TSource, object> CreatePropertyGetter(PropertyInfo property)
         {
 
-            var parameter = Expression.Parameter(sourceType, "source");
+            var parameter = Expression.Parameter(_sourceType, "source");
             var propertyAccess = Expression.Convert(Expression.Property(parameter, property), typeof(object));
             var lambda = Expression.Lambda<Func<TSource, object>>(propertyAccess, parameter);
 
@@ -173,24 +161,18 @@ namespace ConsoleApp1.Shared
         private static Action<TDestination, object> CreatePropertySetter(PropertyInfo property)
         {
 
-            var targetType = destinationType;
-            var propertyType = property.PropertyType;
+            var targetType = _destinationType;
 
             // パラメータ: (TDestination target, object value)
-            var targetParam = Expression.Parameter(targetType, "target");
-            var valueParam = Expression.Parameter(typeof(object), "value");
+            var destinationParameter = Expression.Parameter(_destinationType, "target");
+            var valueParameter = Expression.Parameter(typeof(object), "value");
 
-            // (propertyType)value
-            var castedValue = Expression.Convert(valueParam, propertyType);
-
-            // target.Property
-            var propertyExpr = Expression.Property(targetParam, property);
 
             // target.Property = (propertyType)value
-            var assignExpr = Expression.Assign(propertyExpr, castedValue);
+            var assign = Expression.Assign(Expression.Property(destinationParameter, property), Expression.Convert(valueParameter, property.PropertyType));
 
             // ラムダ式を作成: (target, value) => target.Property = (propertyType)value;
-            var lambda = Expression.Lambda<Action<TDestination, object>>(assignExpr, targetParam, valueParam);
+            var lambda = Expression.Lambda<Action<TDestination, object>>(assign, destinationParameter, valueParameter);
 
             return lambda.Compile();
         }
@@ -201,7 +183,7 @@ namespace ConsoleApp1.Shared
             var source = Expression.Parameter(typeof(TSource), "source");
             var sourceAccess = Expression.Property(source, sourceProperty);
 
-            var destination = Expression.Parameter(destinationType, "destination");
+            var destination = Expression.Parameter(_destinationType, "destination");
             
             var assign = Expression.Assign(Expression.Property(destination, destinationProperty), sourceAccess);
 
@@ -209,12 +191,37 @@ namespace ConsoleApp1.Shared
 
             return lambda.Compile();
         }
+        private static Action<TSource, TDestination> CreatePropertyAssign2()
+        {
 
+            var expressionList = new List<Expression>();
+
+            var source = Expression.Parameter(_sourceType, "source");
+            var destination = Expression.Parameter(_destinationType, "destination");
+
+            foreach (var sourceProperty in _sourceType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                var destinationProperty = _destinationType.GetProperty(sourceProperty.Name, BindingFlags.Public | BindingFlags.Instance);
+                if (destinationProperty != null && destinationProperty.CanWrite)
+                {
+                    var sourceAccess = Expression.Property(source, sourceProperty);
+                    var destinationAccess = Expression.Property(destination, destinationProperty);
+                    var assign = Expression.Assign(destinationAccess, sourceAccess);
+
+                    expressionList.Add(assign);
+                }
+            }
+
+            var block = Expression.Block(expressionList);
+            var lambda = Expression.Lambda<Action<TSource, TDestination>>(block, source, destination);
+
+            return lambda.Compile();
+        }
         private static Func<TDestination> CreateDestinationConstructor()
         {
             if (_destinationConstructor == null)
             {
-                var constructor = destinationType.GetConstructor(Type.EmptyTypes);
+                var constructor = _destinationType.GetConstructor(Type.EmptyTypes);
                 if (constructor == null)
                 {
                     throw new InvalidOperationException($"Type {typeof(TDestination).Name} does not have a parameterless constructor.");
@@ -227,7 +234,7 @@ namespace ConsoleApp1.Shared
         }
         private static Func<TSource, TDestination> CreateDestinationInit()
         {
-            var constructor = destinationType.GetConstructor(Type.EmptyTypes);
+            var constructor = _destinationType.GetConstructor(Type.EmptyTypes);
             if (constructor == null)
             {
                 throw new InvalidOperationException($"Type {typeof(TDestination).Name} does not have a parameterless constructor.");
@@ -239,7 +246,7 @@ namespace ConsoleApp1.Shared
             foreach (var sourceProperty in typeof(TSource).GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
                 var destinationProperty = typeof(TDestination).GetProperty(sourceProperty.Name);
-                if (destinationProperty != null)
+                if (destinationProperty != null && destinationProperty.CanWrite)
                 {
                     var sourceAccess = Expression.Property(source, sourceProperty);
                     var binding = Expression.Bind(destinationProperty, sourceAccess);

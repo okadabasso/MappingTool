@@ -20,7 +20,7 @@ public class MappingBenchmark
     [GlobalSetup]
     public void Setup()
     {
-        source = GenerateTestData(1_000);
+        source = GenerateTestData(10);
 
         var config = new MapperConfiguration(cfg =>
         {
@@ -133,6 +133,18 @@ public class MappingBenchmark
     public int MapWithAutoMapper()
     {
         var destination = autoMapper.Map<List<DestinationData>>(source);
+        return destination.Count;
+    }
+    [Benchmark]
+    public int MapWithAutoMapper2()
+    {
+        var destination = new List<DestinationData>();
+        foreach (var item in source)
+        {
+            var dest = new DestinationData();
+            autoMapper.Map(item, dest);
+            destination.Add(dest);
+        }
         return destination.Count;
     }
 
