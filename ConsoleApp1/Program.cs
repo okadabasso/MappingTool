@@ -5,39 +5,95 @@ using ConsoleApp1.Data;
 using ConsoleApp1.Shared;
 using System.Numerics;
 using System.Xml.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
 
-var summary = BenchmarkRunner.Run<MappingBenchmark>();
+ConstructorCheck();
 
-//var i = 1;
+void ConstructorCheck(){
+    Console.WriteLine("ConstructorCheck All Constructors");
+    var t = typeof(DestinationRecord);
+    var constructors = t.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
 
-//var source = new SourceData()
-//{
+    foreach (var constructor in constructors)
+    {
+        Console.WriteLine("constructor: " + constructor.Name);
+        var parameters = constructor.GetParameters();
+        foreach (var parameter in parameters)
+        {
+            Console.WriteLine($"Parameter: {parameter.Name}, Type: {parameter.ParameterType}");
+        }
+    }
 
-//    Id = i,
-//    Name = $"Name_{i}",
-//    Created = DateTime.Now.AddDays(-i),
-//    IsActive = i % 2 == 0,
-//    Score = i * 1.23,
-//    Balance = i * 1000.50m,
-//    Token = Guid.NewGuid(),
-//    Description = $"Description for {i}",
-//    Age = 20 + (i % 30),
-//    Category = $"Category_{i % 5}",
-//    Expiration = DateTime.Now.AddDays(i),
-//    IsDeleted = i % 10 == 0,
-//    TotalCount = i * 1000L,
-//    Ratio = (float)(i * 0.1),
-//    Level = (short)(i % 10),
-//    Status = (byte)(i % 256),
-//    Initial = (char)('A' + (i % 26)),
-//    Email = $"user{i}@example.com",
-//    Phone = $"090-0000-{i:D4}",
-//    Website = new Uri($"https://example.com/user/{i}")
-//};
-//var destination = new DestinationData();
+    Console.WriteLine("ConstructorCheck Primary Constructor");
+    var primaryConstructor = GetPrimaryConstructor();
+    if (primaryConstructor != null)
+    {
+        Console.WriteLine($"Primary Constructor: {primaryConstructor.Name}");
+        var parameters = primaryConstructor.GetParameters();
+        foreach (var parameter in parameters)
+        {
+            Console.WriteLine($"Parameter: {parameter.Name}, Type: {parameter.ParameterType}");
+        }
+    }
+    else
+    {
+        Console.WriteLine("No primary constructor found.");
+    }
 
-//var mapper = new SimpleMapper<SourceData, DestinationData>();
-//mapper.Map3(source, destination);
+}
+ConstructorInfo GetPrimaryConstructor(){
+    var t = typeof(DestinationRecord);
+     // すべてのパブリックなインスタンスコンストラクターを取得
+    var constructors = t.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
 
-//Console.WriteLine($"Id: {destination.Id} email: {destination.Email}");
+    // 主コンストラクターを特定
+    var primaryConstructor = constructors.FirstOrDefault(c =>
+    {
+        var parameters = c.GetParameters();
+        // 主コンストラクターの条件: パラメーターの数がプロパティの数と一致
+        return parameters.Length == t.GetProperties().Length &&
+               parameters.All(p => t.GetProperty(p.Name, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance) != null);
+    });
+    return primaryConstructor;
+}
+Func<SourceRecord, DestinationRecord> CreateDestinationInit()
+{
+    var t = typeof(DestinationRecord);
+    var constructor = GetPrimaryConstructor();
+    if (constructor == null)
+    {
+        throw new InvalidOperationException("No primary constructor found.");
+    }
+    var sourceType = typeof(SourceRecord);
+    var sourceParameter = Expression.Parameter(typeof(SourceRecord), "source");
+    var parameters = constructor.GetParameters();
+    var parameterExpressions = new ParameterExpression[parameters.Length];
+    var arguments = new Expression[parameters.Length];
+    for (int i = 0; i < parameters.Length; i++)
+    {
+        var sourceProperty = sourceType.GetProperty(parameters[i].Name, BindingFlags.Public | BindingFlags.Instance);
+        if (sourceProperty == null)
+        {
+            var d = Expression.Default(parameters[i].ParameterType);
+            arguments[i] = Expression.Default(parameters[i].ParameterType);
+        }
+        else{
+            arguments[i] = Expression.Property(sourceParameter, sourceProperty);
+        }
+    }
+    var newExpression = Expression.New(constructor, arguments);
 
+    var lambda = Expression.Lambda<Func<SourceRecord, DestinationRecord>>(newExpression, sourceParameter);
+    return lambda.Compile();
+}
+Expression<Func<SourceRecord, DestinationRecord>> a = source => new DestinationRecord(source.Id, source.Name);
+
+Console.WriteLine("a: ");
+Console.WriteLine(a);
+
+var source = new SourceRecord(1, "Test");
+var init = CreateDestinationInit();
+var destination = init(source);
+Console.WriteLine("destination: ");
+Console.WriteLine(destination);

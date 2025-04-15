@@ -1,120 +1,148 @@
 ﻿using MappingTool.Mapping;
 using Xunit;
 
-namespace MappingToolTest;
-
-public class UnitTest1
+namespace MappingToolTest
 {
-    // テスト用のクラス
-    public class Source
+    public class SimpleMapperTests
     {
-        public int Id { get; set; }
-        public string Name { get; set; } = null!;
-    }
-
-    public class Destination
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = null!;
-    }
-
-    public struct DestinationStruct
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = null!;
-
-        public DestinationStruct()
+        // テスト用のクラス
+        public class Source
         {
+            public int Id { get; set; }
+            public string Name { get; set; } = null!;
         }
-        public DestinationStruct(int id, string name)
+
+        public class Destination
         {
-            Id = id;
-            Name = name;
+            public int Id { get; set; }
+            public string Name { get; set; } = null!;
         }
-    }
 
-    public record DestinationRecord(int Id, string Name);
-
-    [Fact]
-    public void MapObject_ShouldMapPropertiesCorrectly()
-    {
-        // Arrange
-        var source = new Source { Id = 1, Name = "Test" };
-        var destination = new Destination();
-        var mapper = new SimpleMapper<Source, Destination>();
-
-        // Act
-        mapper.Map(source, destination);
-
-        // Assert
-        Assert.Equal(source.Id, destination.Id);
-        Assert.Equal(source.Name, destination.Name);
-    }
-
-    [Fact]
-    public void MapObject_ShouldReturnMappedInstance()
-    {
-        // Arrange
-        var source = new Source { Id = 2, Name = "Example" };
-        var mapper = new SimpleMapper<Source, Destination>();
-
-        // Act
-        var destination = mapper.Map(source);
-
-        // Assert
-        Assert.Equal(source.Id, destination.Id);
-        Assert.Equal(source.Name, destination.Name);
-    }
-
-    [Fact]
-    public void MapStruct_ShouldMapStructCorrectly()
-    {
-        // Arrange
-        var source = new Source { Id = 3, Name = "StructTest" };
-        var mapper = new SimpleMapper<Source, DestinationStruct>();
-
-        // Act
-        var destination = mapper.MapStruct(source);
-
-        // Assert
-        Assert.Equal(source.Id, destination.Id);
-        Assert.Equal(source.Name, destination.Name);
-    }
-
-    // [Fact]
-    // public void MapRecord_ShouldMapRecordCorrectly()
-    // {
-    //     // Arrange
-    //     var source = new Source { Id = 4, Name = "RecordTest" };
-    //     var mapper = new SimpleMapper<Source, DestinationRecord>();
-
-    //     // Act
-    //     var destination = mapper.MapRecord(source);
-
-    //     // Assert
-    //     Assert.Equal(source.Id, destination.Id);
-    //     Assert.Equal(source.Name, destination.Name);
-    // }
-
-    [Fact]
-    public void MapEnumerable_ShouldMapAllItems()
-    {
-        // Arrange
-        var sources = new List<Source>
+        public struct DestinationStruct
         {
-            new Source { Id = 1, Name = "Item1" },
-            new Source { Id = 2, Name = "Item2" }
-        };
-        var mapper = new SimpleMapper<Source, Destination>();
+            public int Id { get; set; }
+            public string Name { get; set; }
+        }
+        public struct DestinationStructWithDefaultConstructor
+        {
+            public int Id { get; set; }
+            public string Name { get; set; } = null!;
+            public DestinationStructWithDefaultConstructor()
+            {
+                
+            }
+        }
+        public struct DestinationStructWithConstructor
+        {
+            public int Id { get; set; }
+            public string Name { get; set; } = null!;
+            public DestinationStructWithConstructor(int id, string name)
+            {
+                Id = id;
+                Name = name;
+            }
+        }
+        public record DestinationRecord(int Id, string Name);
 
-        // Act
-        var destinations = mapper.Map(sources);
+        [Fact]
+        public void Map_Class_ShouldMapPropertiesCorrectly()
+        {
+            // Arrange
+            var source = new Source { Id = 1, Name = "Test" };
+            var mapper = new SimpleMapper<Source, Destination>();
 
-        // Assert
-        Assert.Equal(sources.Count, destinations.Count());
-        Assert.Equal(sources[0].Id, destinations.ElementAt(0).Id);
-        Assert.Equal(sources[0].Name, destinations.ElementAt(0).Name);
-        Assert.Equal(sources[1].Id, destinations.ElementAt(1).Id);
-        Assert.Equal(sources[1].Name, destinations.ElementAt(1).Name);
+            // Act
+            var destination = mapper.Map(source);
+
+            // Assert
+            Assert.Equal(source.Id, destination.Id);
+            Assert.Equal(source.Name, destination.Name);
+        }
+
+        [Fact]
+        public void Map_Struct_ShouldMapPropertiesCorrectly()
+        {
+            // Arrange
+            var source = new Source { Id = 2, Name = "StructTest" };
+            
+            Assert.Throws<TypeInitializationException>(() => {
+                var mapper = new SimpleMapper<Source, DestinationStruct>();
+            });
+        }
+        [Fact]
+        public void Map_Struct_WIthNoConstructor_ShouldThrowException()
+        {
+            // Arrange
+            var source = new Source { Id = 2, Name = "StructTest" };
+            var mapper = new SimpleMapper<Source, DestinationStructWithDefaultConstructor>();
+
+            // Act
+            var destination = mapper.Map(source);
+
+            // Assert
+            Assert.Equal(source.Id, destination.Id);
+            Assert.Equal(source.Name, destination.Name);
+        }
+        [Fact]
+        public void Map_Struct_MapPropertiesCorrectly_WithConstructor()
+        {
+            // Arrange
+            var source = new Source { Id = 2, Name = "StructTest" };
+            var mapper = new SimpleMapper<Source, DestinationStructWithConstructor>();
+
+            // Act
+            var destination = mapper.Map(source);
+
+            // Assert
+            Assert.Equal(source.Id, destination.Id);
+            Assert.Equal(source.Name, destination.Name);
+        }
+
+        [Fact]
+        public void Map_Record_ShouldMapPropertiesCorrectly()
+        {
+            // Arrange
+            var source = new Source { Id = 3, Name = "RecordTest" };
+            var mapper = new SimpleMapper<Source, DestinationRecord>();
+
+            // Act
+            var destination = mapper.Map(source);
+
+            // Assert
+            Assert.Equal(source.Id, destination.Id);
+            Assert.Equal(source.Name, destination.Name);
+        }
+
+        [Fact]
+        public void Map_Enumerable_ShouldMapAllItems()
+        {
+            // Arrange
+            var sources = new List<Source>
+            {
+                new Source { Id = 1, Name = "Item1" },
+                new Source { Id = 2, Name = "Item2" }
+            };
+            var mapper = new SimpleMapper<Source, Destination>();
+
+            // Act
+            var destinations = mapper.Map(sources);
+
+            // Assert
+            Assert.Equal(sources.Count, destinations.Count());
+            Assert.Equal(sources[0].Id, destinations.ElementAt(0).Id);
+            Assert.Equal(sources[0].Name, destinations.ElementAt(0).Name);
+            Assert.Equal(sources[1].Id, destinations.ElementAt(1).Id);
+            Assert.Equal(sources[1].Name, destinations.ElementAt(1).Name);
+        }
+
+        [Fact]
+        public void Map_WithNullSource_ShouldThrowException()
+        {
+            // Arrange
+            var mapper = new SimpleMapper<Source, Destination>();
+
+            // Act & Assert
+            Assert.Throws<ArgumentNullException>(() => mapper.Map((Source)null!));
+        }
     }
 }
