@@ -172,7 +172,7 @@ namespace MappingTool.Mapping
             var constructor = GetPrimaryConstructor();
             if (constructor == null)
             {
-                return null;
+                return null!;
             }
             var sourceParameter = Expression.Parameter(_sourceType, "source");
             var parameters = constructor.GetParameters();
