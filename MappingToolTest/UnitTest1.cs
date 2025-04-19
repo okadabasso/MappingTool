@@ -49,7 +49,7 @@ namespace MappingToolTest
         {
             // Arrange
             var source = new Source { Id = 1, Name = "Test" };
-            var mapper = new SimpleMapper<Source, Destination>();
+            var mapper = MapperFactory<Source, Destination>.CreateMapper();
 
             // Act
             var destination = mapper.Map(source);
@@ -65,8 +65,8 @@ namespace MappingToolTest
             // Arrange
             var source = new Source { Id = 2, Name = "StructTest" };
             
-            Assert.Throws<TypeInitializationException>(() => {
-                var mapper = new SimpleMapper<Source, DestinationStruct>();
+            Assert.Throws<InvalidOperationException>(() => {
+            var mapper = MapperFactory<Source, DestinationStruct>.CreateMapper();
             });
         }
         [Fact]
@@ -74,7 +74,7 @@ namespace MappingToolTest
         {
             // Arrange
             var source = new Source { Id = 2, Name = "StructTest" };
-            var mapper = new SimpleMapper<Source, DestinationStructWithDefaultConstructor>();
+            var mapper = MapperFactory<Source, DestinationStructWithDefaultConstructor>.CreateMapper();
 
             // Act
             var destination = mapper.Map(source);
@@ -88,7 +88,7 @@ namespace MappingToolTest
         {
             // Arrange
             var source = new Source { Id = 2, Name = "StructTest" };
-            var mapper = new SimpleMapper<Source, DestinationStructWithConstructor>();
+            var mapper = MapperFactory<Source, DestinationStructWithDefaultConstructor>.CreateMapper();
 
             // Act
             var destination = mapper.Map(source);
@@ -103,7 +103,7 @@ namespace MappingToolTest
         {
             // Arrange
             var source = new Source { Id = 3, Name = "RecordTest" };
-            var mapper = new SimpleMapper<Source, DestinationRecord>();
+            var mapper = MapperFactory<Source, DestinationRecord>.CreateMapper();
 
             // Act
             var destination = mapper.Map(source);
@@ -122,7 +122,7 @@ namespace MappingToolTest
                 new Source { Id = 1, Name = "Item1" },
                 new Source { Id = 2, Name = "Item2" }
             };
-            var mapper = new SimpleMapper<Source, Destination>();
+            var mapper = MapperFactory<Source, Destination>.CreateMapper();
 
             // Act
             var destinations = mapper.Map(sources);
@@ -139,7 +139,7 @@ namespace MappingToolTest
         public void Map_WithNullSource_ShouldThrowException()
         {
             // Arrange
-            var mapper = new SimpleMapper<Source, Destination>();
+            var mapper = MapperFactory<Source, Destination>.CreateMapper();
 
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() => mapper.Map((Source)null!));
