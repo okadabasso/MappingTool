@@ -26,6 +26,7 @@ namespace MappingToolTest.Benchmarks
     public class MappingBenchmark
     {
         private readonly SimpleMapper<Source, Destination> _simpleMapper = new();
+        private readonly ReflectionMapper<Source, Destination> _reflectionMapper = new();
         private readonly IMapper _autoMapper;
         private readonly List<Source> _sourceList;
 
@@ -49,21 +50,36 @@ namespace MappingToolTest.Benchmarks
         [Benchmark]
         public int SimpleMapper_Single()
         {
+            List<Destination> destinations = new List<Destination>();
             foreach (var source in _sourceList)
             {
                 var destination = _simpleMapper.Map(source);
+                destinations.Add(destination);
             }
-            return _sourceList.Count;
+            return destinations.Count;
+        }
+        [Benchmark]
+        public int ReflectionMapper_Single()
+        {
+            List<Destination> destinations = new List<Destination>();
+            foreach (var source in _sourceList)
+            {
+                var destination = _reflectionMapper.Map(source);
+                destinations.Add(destination);
+            }
+            return destinations.Count;
         }
 
         [Benchmark]
         public int AutoMapper_Single()
         {
+            List<Destination> destinations = new List<Destination>();
             foreach (var source in _sourceList)
             {
                 var destination = _autoMapper.Map<Destination>(source);
+                destinations.Add(destination);
             }
-            return _sourceList.Count;
+            return destinations.Count;
         }
 
         [Benchmark]

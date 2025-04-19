@@ -20,7 +20,7 @@ public class MappingBenchmark
     [GlobalSetup]
     public void Setup()
     {
-        source = GenerateTestData(10);
+        source = GenerateTestData(1000);
 
         var config = new MapperConfiguration(cfg =>
         {

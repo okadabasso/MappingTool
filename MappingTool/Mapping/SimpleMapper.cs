@@ -13,13 +13,22 @@ namespace MappingTool.Mapping
 {
     public class SimpleMapper<TSource, TDestination>
     {
-        private static Action<TSource, TDestination> _assignProperties = null!;
-        private static Func<TSource, TDestination> _objectInitializer = null!;
+
+        private static readonly LRUCache<(Type, Type), Func<TSource, TDestination>> _propertyInitializerCache = new(100);
+        private static readonly LRUCache<(Type, Type), Func<TSource, TDestination>> _constructorInitializerCache = new(100);
+        private static readonly LRUCache<(Type, Type), Action<TSource, TDestination>> _propertyAssignCache = new(100);
+
+        private Action<TSource, TDestination> _propertyAssign = null!;
+        private Func<TSource, TDestination> _objectInitializer = null!;
 
         private static Type _sourceType = typeof(TSource);
         private static Type _destinationType = typeof(TDestination);
 
         static SimpleMapper()
+        {
+
+        }
+        public SimpleMapper()
         {
             if (_destinationType.IsClass)
             {
@@ -27,30 +36,31 @@ namespace MappingTool.Mapping
                 if (_destinationType.GetConstructors(BindingFlags.Public | BindingFlags.Instance)
                         .Any(c => c.GetParameters().Length == _destinationType.GetProperties().Length))
                 {
-                    _objectInitializer = CreateConstructorInititializer();
+                    _objectInitializer = GetOrCreateConstructorInitializer();
                     if (_objectInitializer == null)
                     {
-                        _objectInitializer = CreatePropertyInitializer();
+                        _objectInitializer = GetOrCreatePropertyInitializer();
                     }
                 }
-                else{
-                    _assignProperties = CreatePropertyAssign();
-                    _objectInitializer = CreatePropertyInitializer();
-    
+                else
+                {
+                    _propertyAssign = GetOrCreatePropertyAssign();
+                    _objectInitializer = GetOrCreatePropertyInitializer();
+
                 }
             }
             else if (_destinationType.IsValueType && !_destinationType.IsEnum)
             {
-                _objectInitializer = CreateConstructorInititializer();
-                if(_objectInitializer == null)
+                _objectInitializer = GetOrCreateConstructorInitializer();
+                if (_objectInitializer == null)
                 {
-                    _objectInitializer = CreatePropertyInitializer();
+                    _objectInitializer = GetOrCreatePropertyInitializer();
                 }
             }
-        
-        }
-        public SimpleMapper()
-        {
+            else
+            {
+                throw new InvalidOperationException($"Type {_destinationType.Name} is not a class or struct.");
+            }
         }
 
         public void Map(TSource source, TDestination destination)
@@ -59,7 +69,7 @@ namespace MappingTool.Mapping
             {
                 throw new ArgumentNullException("Source or destination cannot be null.");
             }
-            _assignProperties(source, destination);
+            _propertyAssign(source, destination);
         }
         public TDestination Map(TSource source)
         {
@@ -67,8 +77,7 @@ namespace MappingTool.Mapping
             {
                 throw new ArgumentNullException("Source cannot be null.");
             }
-            var destination = _objectInitializer(source);
-            return destination;
+            return _objectInitializer(source);
         }
         public IEnumerable<TDestination> Map(IEnumerable<TSource> source)
         {
@@ -76,13 +85,8 @@ namespace MappingTool.Mapping
             {
                 throw new ArgumentNullException("Source cannot be null.");
             }
-            var list = new List<TDestination>(source.Count());
-            foreach (var item in source)
-            {
-                var destination = _objectInitializer(item);
-                list.Add(destination);
-            }
-            
+
+            var list = source.Select(item => _objectInitializer(item)).ToList();
             return list;
         }
 
@@ -94,15 +98,15 @@ namespace MappingTool.Mapping
             var source = Expression.Parameter(_sourceType, "source");
             var destination = Expression.Parameter(_destinationType, "destination");
 
-            foreach(var destinationProperty in _destinationType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            foreach (var destinationProperty in _destinationType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
                 if (!destinationProperty.CanWrite)
                 {
                     continue;
                 }
-                
+
                 var sourceProperty = _sourceType.GetProperty(destinationProperty.Name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-                if(sourceProperty == null)
+                if (sourceProperty == null)
                 {
                     var defaultParametr = Expression.Default(destinationProperty.PropertyType);
                     expressionList.Add(defaultParametr);
@@ -116,10 +120,10 @@ namespace MappingTool.Mapping
 
                     expressionList.Add(assign);
                 }
-                
+
             }
 
-            
+
             var block = Expression.Block(expressionList);
             var lambda = Expression.Lambda<Action<TSource, TDestination>>(block, source, destination);
 
@@ -137,15 +141,15 @@ namespace MappingTool.Mapping
 
             var memberBindings = new List<MemberBinding>();
 
-            foreach(var destinationProperty in _destinationType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            foreach (var destinationProperty in _destinationType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
                 if (!destinationProperty.CanWrite)
                 {
                     continue;
                 }
-                
+
                 var sourceProperty = _sourceType.GetProperty(destinationProperty.Name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-                if(sourceProperty == null)
+                if (sourceProperty == null)
                 {
                     var defaultParametr = Expression.Default(destinationProperty.PropertyType);
                     var binding = Expression.Bind(destinationProperty, defaultParametr);
@@ -158,7 +162,7 @@ namespace MappingTool.Mapping
                     var binding = Expression.Bind(destinationProperty, sourceAccess);
                     memberBindings.Add(binding);
                 }
-                
+
             }
 
 
@@ -181,7 +185,7 @@ namespace MappingTool.Mapping
 
             foreach (var parameter in parameters)
             {
-                if(string.IsNullOrEmpty(parameter.Name))
+                if (string.IsNullOrEmpty(parameter.Name))
                 {
                     throw new InvalidOperationException("Parameter name is null or empty.");
                 }
@@ -190,7 +194,8 @@ namespace MappingTool.Mapping
                 {
                     arguments.Add(Expression.Default(parameter.ParameterType));
                 }
-                else{
+                else
+                {
                     arguments.Add(Expression.Property(sourceParameter, sourceProperty));
                 }
             }
@@ -199,7 +204,8 @@ namespace MappingTool.Mapping
             var lambda = Expression.Lambda<Func<TSource, TDestination>>(newExpression, sourceParameter);
             return lambda.Compile();
         }
-        private static ConstructorInfo? GetPrimaryConstructor(){
+        private static ConstructorInfo? GetPrimaryConstructor()
+        {
             // すべてのパブリックなインスタンスコンストラクターを取得
             var constructors = _destinationType.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
 
@@ -212,6 +218,23 @@ namespace MappingTool.Mapping
                     parameters.All(p => _destinationType.GetProperty(p.Name ?? "", BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance) != null);
             });
             return primaryConstructor;
+        }
+
+        private static Func<TSource, TDestination> GetOrCreatePropertyInitializer()
+        {
+            var initializer = _propertyInitializerCache.GetOrAdd((_sourceType, _destinationType), _ => CreatePropertyInitializer());
+            return initializer;
+        }
+
+        private static Func<TSource, TDestination> GetOrCreateConstructorInitializer()
+        {
+            var initializer = _constructorInitializerCache.GetOrAdd((_sourceType, _destinationType), _ => CreateConstructorInititializer());
+            return initializer;
+        }
+        private static Action<TSource, TDestination> GetOrCreatePropertyAssign()
+        {
+            var initializer = _propertyAssignCache.GetOrAdd((_sourceType, _destinationType), _ => CreatePropertyAssign());
+            return initializer;
         }
 
     }
