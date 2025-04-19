@@ -25,7 +25,7 @@ namespace MappingToolTest.Benchmarks
 
     public class MappingBenchmark
     {
-        private readonly SimpleMapper<Source, Destination> _simpleMapper = new();
+        private readonly IMapper<Source, Destination> _simpleMapper;
         private readonly ReflectionMapper<Source, Destination> _reflectionMapper = new();
         private readonly IMapper _autoMapper;
         private readonly List<Source> _sourceList;
@@ -39,6 +39,7 @@ namespace MappingToolTest.Benchmarks
             });
             _autoMapper = config.CreateMapper();
 
+            _simpleMapper = MapperFactory<Source, Destination>.CreateMapper();
             // テストデータの準備
             _sourceList = new List<Source>();
             for (int i = 0; i < 1000; i++)
