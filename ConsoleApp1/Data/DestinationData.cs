@@ -9,15 +9,15 @@ namespace ConsoleApp1.Data
     internal class DestinationData
     {
         public int Id { get; set; }
-        public string Name { get; set; }
+        public string Name { get; set; } = null!;
         public DateTime Created { get; set; }
         public bool IsActive { get; set; }
         public double Score { get; set; }
         public decimal Balance { get; set; }
         public Guid Token { get; set; }
-        public string Description { get; set; }
+        public string Description { get; set; } = null!;
         public int Age { get; set; }
-        public string Category { get; set; }
+        public string Category { get; set; } = null!;
         public DateTime? Expiration { get; set; }
         public bool IsDeleted { get; set; }
         public long TotalCount { get; set; }
@@ -25,8 +25,8 @@ namespace ConsoleApp1.Data
         public short Level { get; set; }
         public byte Status { get; set; }
         public char Initial { get; set; }
-        public string Email { get; set; }
-        public string Phone { get; set; }
-        public Uri Website { get; set; }
+        public string Email { get; set; } = null!;
+        public string Phone { get; set; } = null!;
+        public Uri Website { get; set; } = null!;
     }
 }

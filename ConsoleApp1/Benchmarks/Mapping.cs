@@ -13,9 +13,9 @@ using ConsoleApp1.Shared;
 [MinColumn, MaxColumn, MeanColumn, MedianColumn]
 public class MappingBenchmark
 {
-    private List<SourceData> source;
-    private IMapper autoMapper;
-    private SimpleMapper<SourceData, DestinationData> simpleMapper;
+    private List<SourceData> source = null!;
+    private IMapper autoMapper = null!;
+    private SimpleMapper<SourceData, DestinationData> simpleMapper = null!;
 
     [GlobalSetup]
     public void Setup()
