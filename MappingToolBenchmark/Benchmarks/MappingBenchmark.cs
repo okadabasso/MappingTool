@@ -60,12 +60,36 @@ namespace MappingToolTest.Benchmarks
             return destinations.Count;
         }
         [Benchmark]
+        public int SimpleMapper_MapToExistingObject()
+        {
+            List<Destination> destinations = new List<Destination>();
+            foreach (var source in _sourceList)
+            {
+                var destination = new Destination(); // 既存のオブジェクトを作成
+                _simpleMapper.Map(source, destination); // 既存のオブジェクトにマッピング
+                destinations.Add(destination);
+            }
+            return destinations.Count;
+        }
+        [Benchmark]
         public int ReflectionMapper_Single()
         {
             List<Destination> destinations = new List<Destination>();
             foreach (var source in _sourceList)
             {
                 var destination = _reflectionMapper.Map(source);
+                destinations.Add(destination);
+            }
+            return destinations.Count;
+        }
+        [Benchmark]
+        public int ReflectionMapper_MapToExistingObject()
+        {
+            List<Destination> destinations = new List<Destination>();
+            foreach (var source in _sourceList)
+            {
+                var destination = new Destination(); // 既存のオブジェクトを作成
+                _reflectionMapper.Map(source, destination); // 既存のオブジェクトにマッピング
                 destinations.Add(destination);
             }
             return destinations.Count;
@@ -82,6 +106,19 @@ namespace MappingToolTest.Benchmarks
             }
             return destinations.Count;
         }
+        [Benchmark]
+        public int AutoMapper_MapToExistingObject()
+        {
+            List<Destination> destinations = new List<Destination>();
+            foreach (var source in _sourceList)
+            {
+                var destination = new Destination(); // 既存のオブジェクトを作成 
+                _autoMapper.Map<Source, Destination>(source, destination); // 既存のオブジェクトにマッピング
+                destinations.Add(destination);
+            }
+            return destinations.Count;
+        }
+
 
         [Benchmark]
         public int SimpleMapper_Bulk()
