@@ -8,13 +8,10 @@ using System.Xml.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using AutoMapper;
+using ConsoleApp1.Samples;
+using Perfolizer;
 
 // BenchmarkRunner.Run<MappingBenchmark>();
 
-var source = new SourceData { Id = 1, Name = "Test" };
-
-
-Expression<Func<SourceData, T>> GetProperty<SourceData, T>(Expression<Func<SourceData, T>> expression)
-{
-    return expression ;  ;
-}
+Sample1 sample = new Sample1();
+Sample1.SampleMethod1();

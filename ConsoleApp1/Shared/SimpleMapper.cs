@@ -12,7 +12,9 @@ using System.Security.AccessControl;
 
 namespace ConsoleApp1.Shared
 {
-    public class SimpleMapper<TSource, TDestination>
+    public class SimpleMapper<TSource, TDestination> : ISimpleMapper
+        where TSource : notnull
+        where TDestination : notnull
     {
         private static ConcurrentDictionary<Type, Dictionary<string, Func<TSource, object>>> _getterCache = new ConcurrentDictionary<Type, Dictionary<string, Func<TSource, object>>>();
         private static ConcurrentDictionary<Type, Dictionary<string, Action<TDestination, object>>> _setterCache = new ConcurrentDictionary<Type, Dictionary<string, Action<TDestination, object>>>();
@@ -20,30 +22,27 @@ namespace ConsoleApp1.Shared
         private static ConcurrentDictionary<(Type, Type), List<Action<TSource, TDestination>>> _assignCache
             = new ConcurrentDictionary<(Type, Type), List<Action<TSource, TDestination>>>();
         
-        private static Dictionary<string, Func<TSource, object>> _getters;
-        private static Dictionary<string, Action<TDestination, object>> _setters;
-        private static List<Action<TSource, TDestination>> _assigns;
-        private static Action<TSource, TDestination> _assignAction;
+        private static Dictionary<string, Func<TSource, object>> _getters = null!;
+        private static Dictionary<string, Action<TDestination, object>> _setters = null!;
+        private static Action<TSource, TDestination> _assignAction = null!;
 
-        private static Func<TDestination> _destinationConstructor;
-        private static Func<TSource, TDestination> _destinationInit;
+        private static Func<TDestination> _destinationConstructor = null!;
+        private static Func<TSource, TDestination> _destinationInit = null!;
 
         private static Type _sourceType = typeof(TSource);
         private static Type _destinationType = typeof(TDestination);
 
         static SimpleMapper()
         {
-            // コンストラクタでキャッシュを初期化
-            _getters = GetPropertyGetter(typeof(TSource));
-            _setters = GetPropertySetter(typeof(TDestination));
-            _assigns = GetPropertyAssign();
-            _assignAction = CreatePropertyAssign2();
-            _destinationConstructor = CreateDestinationConstructor();
-            _destinationInit = CreateDestinationInit();
         }
         public SimpleMapper()
         {
         }
+        public SimpleMapper(Func<TSource, TDestination> objectInitializer, Action<TSource, TDestination> propertyAssign)
+        {
+            _assignAction = propertyAssign;
+            _destinationInit = objectInitializer;
+        }   
 
         public void Map(TSource source, TDestination destination)
         {
@@ -63,6 +62,8 @@ namespace ConsoleApp1.Shared
         }
         public void Map2(TSource source, TDestination destination)
         {
+            _getters = GetPropertyGetter(typeof(TSource));
+            _setters = GetPropertySetter(typeof(TDestination));
             foreach (var getter in _getters)
             {
                 var value = getter.Value(source);
@@ -75,21 +76,25 @@ namespace ConsoleApp1.Shared
         }
         public void Map3(TSource source, TDestination destination)
         {
+            _assignAction = CreatePropertyAssign2();
             _assignAction(source, destination);
         }
         public TDestination Map4(TSource source)
         {
+            _assignAction = CreatePropertyAssign2();
             var destination = _destinationConstructor();
             _assignAction(source, destination);
             return destination;
         }
         public TDestination Map5(TSource source)
         {
+            _destinationInit = CreateDestinationInit();
             var destination = _destinationInit(source);
             return destination;
         }
         public IEnumerable<TDestination> Map5(IEnumerable<TSource> source)
         {
+            _destinationInit = CreateDestinationInit();
             var list = new List<TDestination>(source.Count());
             foreach (var item in source)
             {
@@ -217,23 +222,12 @@ namespace ConsoleApp1.Shared
 
             return lambda.Compile();
         }
-        private static Func<TDestination> CreateDestinationConstructor()
-        {
-            if (_destinationConstructor == null)
-            {
-                var constructor = _destinationType.GetConstructor(Type.EmptyTypes);
-                if (constructor == null)
-                {
-                    throw new InvalidOperationException($"Type {typeof(TDestination).Name} does not have a parameterless constructor.");
-                }
-                var newExpression = Expression.New(constructor);
-                var lambda = Expression.Lambda<Func<TDestination>>(newExpression);
-                _destinationConstructor = lambda.Compile();
-            }
-            return _destinationConstructor;
-        }
         private static Func<TSource, TDestination> CreateDestinationInit()
         {
+            var destinationType = typeof(TDestination);
+            if(!destinationType.IsPrimitive)
+            {
+            }
             var constructor = _destinationType.GetConstructor(Type.EmptyTypes);
             if (constructor == null)
             {
@@ -260,4 +254,9 @@ namespace ConsoleApp1.Shared
             return lambda.Compile();
         }
     }
+
+    public interface ISimpleMapper
+    {
+    }
+    
 }

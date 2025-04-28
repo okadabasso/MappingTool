@@ -1,5 +1,7 @@
 using System.Linq.Expressions;
-
+using System.Reflection;
+using System.Collections.Generic;
+using System.Collections.Concurrent;
 namespace ConsoleApp1.Shared;
 
 public class MapperFactory<TSource, TDestination>
@@ -17,13 +19,23 @@ public class MapperFactory<TSource, TDestination>
         return new SimpleMapper<TSource, TDestination>();
     }
 }
-public class MapperConfiguration<TSource, TDestination>
-    where TSource : class
-    where TDestination : class
+public class MapperFactory
 {
-    public void CreateMap<TSourceMember, TDestinationMember>(Expression<Func<TSource, TSourceMember>> sourceMember,
-        Expression<Func<TDestination, TDestinationMember>> destinationMember)
+    private static readonly ConcurrentDictionary<(Type, Type), ISimpleMapper> _mapperCache = new();
+
+    public SimpleMapper<TSource, TDestination> CreateMapper<TSource, TDestination>()
+        where TSource : notnull
+        where TDestination : notnull
     {
-        // Implementation for creating a map between source and destination members
+        var mapper =  _mapperCache.GetOrAdd((typeof(TSource), typeof(TDestination)), (key) =>
+        {
+            var sourceType = key.Item1;
+            var destinationType = key.Item2;
+
+            // Create a new instance of the SimpleMapper class
+            return new SimpleMapper<TSource, TDestination>();
+        });
+        // Check if the mapper already exists in the cache
+        return (SimpleMapper<TSource, TDestination>)mapper;
     }
 }
