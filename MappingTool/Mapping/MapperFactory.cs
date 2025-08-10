@@ -102,7 +102,7 @@ namespace MappingTool.Mapping
 
             return lambda.Compile();
         }
-        private static Func<TSource, TDestination> CreatePropertyInitializer()
+        private static Func<TSource, TDestination> CreateObjecetInitializer()
         {
             var constructor = _destinationType.GetConstructor(Type.EmptyTypes);
             if (constructor == null)
@@ -195,7 +195,7 @@ namespace MappingTool.Mapping
 
         private static Func<TSource, TDestination> GetOrCreatePropertyInitializer()
         {
-            var initializer = _propertyInitializerCache.GetOrAdd((_sourceType, _destinationType), _ => CreatePropertyInitializer());
+            var initializer = _propertyInitializerCache.GetOrAdd((_sourceType, _destinationType), _ => CreateObjecetInitializer());
             return initializer;
         }
 

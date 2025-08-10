@@ -105,7 +105,7 @@ public class MappingBenchmark
             var dest = new DestinationData()
             {
                 Id = item.Id,
-                Name = item.Name,
+                // Name = item.Name,
                 Created = item.Created,
                 IsActive = item.IsActive,
                 Score = item.Score,

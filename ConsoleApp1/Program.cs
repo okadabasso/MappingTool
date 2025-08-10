@@ -13,5 +13,5 @@ using Perfolizer;
 
 // BenchmarkRunner.Run<MappingBenchmark>();
 
-Sample1 sample = new Sample1();
-Sample1.SampleMethod1();
+var sample = new Sample3();
+sample.SampleMethod();

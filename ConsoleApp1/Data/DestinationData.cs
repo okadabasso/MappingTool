@@ -9,7 +9,7 @@ namespace ConsoleApp1.Data
     internal class DestinationData
     {
         public int Id { get; set; }
-        public string Name { get; set; } = null!;
+        public string Name { get; set; } = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
         public DateTime Created { get; set; }
         public bool IsActive { get; set; }
         public double Score { get; set; }
