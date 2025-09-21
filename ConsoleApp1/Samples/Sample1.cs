@@ -8,10 +8,6 @@ using ConsoleApp1.Shared;
 
 public class Sample1
 {
-    private static readonly LRUCache<(Type, Type), object> _propertyInitializerCache = new(100);
-    private static readonly LRUCache<(Type, Type), object> _constructorInitializerCache = new(100);
-    private static readonly LRUCache<(Type, Type), object> _propertyAssignCache = new(100);
-
     private static void TypeCheck(Type t){
         if(t.IsGenericType)        {
             var genericType = t.GetGenericTypeDefinition();
@@ -64,36 +60,18 @@ public class Sample1
         }
 
     }
-    public static void SampleMethod2()
-    {
-        var source = new SourceData { Id = 1, Name = "Test" };
-        
-        var type = typeof(Sample1);
-        var method = type.GetMethod("CreateMapperStatic", BindingFlags.Public | BindingFlags.Static);
-        if (method == null)
-        {
-            throw new InvalidOperationException($"Method CreateMapperStatic not found in type {type.Name}.");
+    public void SampleMethod3(){
+        try {
+            var source = new SourceData { Id = 1, Name = "Test", Description = "This is a test." };
+            var mapper = new SimpleMapper<SourceData, Foo>();
+            var destination = mapper.Map5(source);
+            Console.WriteLine($"Id: {destination.Id}, Name: {destination.Name}");
         }
-        var genericMethod = method.MakeGenericMethod(typeof(SourceData), typeof(DestinationData));
-        var methodCall = Expression.Call(genericMethod);
-        var lambda = Expression.Lambda<Func<SimpleMapper<SourceData, DestinationData>>>(methodCall);
-        var compiledLambda = lambda.Compile();
-        var mapper = compiledLambda.Invoke();
-        var destination = mapper.Map5(source);
-
-
-        Console.WriteLine($"Id: {destination.Id}, Name: {destination.Name}");
-    }
-    public static void SampleMethod3(){
-        var list = new List<string> { "a", "b", "c" };
-        var mapper = new SimpleMapper<string, string>();
-        var result = mapper.Map5(list);
-        foreach (var item in result)
-        {
-            Console.WriteLine(item);
+        catch (Exception ex) {
+            Console.WriteLine(ex.Message);
         }
     }
-    public static void SampleMethod4(){
+    public void SampleMethod4(){
         TypeCheck(typeof(int));
         TypeCheck(typeof(string));
         TypeCheck(typeof(DateTime));
@@ -109,7 +87,7 @@ public class Sample1
         TypeCheck(typeof(Baz));
     
     }
-    public static void SampleMethod1()
+    public void SampleMethod1()
     {
         var source = new List<SourceData>(){
             new SourceData { Id = 1, Name = "Test1" },
