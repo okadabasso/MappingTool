@@ -11,11 +11,34 @@ namespace MappingTool.Mapping
         where TSource : notnull
         where TDestination : notnull
     {
-        private static readonly LRUCache<(Type, Type), Func<TSource, TDestination>> _propertyInitializerCache = new(100);
-        private static readonly LRUCache<(Type, Type), Func<TSource, TDestination>> _constructorInitializerCache = new(100);
+        /// <summary>
+        /// プロパティ初期化子のキャッシュ
+        /// 
+        /// var foo = new Foo { A = 1, B = 2 };
+        /// </summary>
+        private static readonly LRUCache<(Type, Type), Func<TSource, TDestination>> _memberInitCache = new(100);
+        /// <summary>
+        /// コンストラクター初期化子のキャッシュ
+        /// 
+        /// var foo = new Foo(1, 2);
+        /// </summary>
+        private static readonly LRUCache<(Type, Type), Func<TSource, TDestination>> _constructorCache = new(100);
+        /// <summary>
+        /// プロパティ代入のキャッシュ
+        /// 
+        /// foo.A = source.A;
+        /// foo.B = source.B;
+        /// ...
+        /// </summary>
         private static readonly LRUCache<(Type, Type), Action<TSource, TDestination>> _propertyAssignCache = new(100);
 
+        /// <summary>
+        /// マップ元の型
+        /// </summary>
         private static Type _sourceType = typeof(TSource);
+        /// <summary>
+        /// マップ先の型
+        /// </summary>
         private static Type _destinationType = typeof(TDestination);
 
         static MapperFactory()
@@ -195,13 +218,13 @@ namespace MappingTool.Mapping
 
         private static Func<TSource, TDestination> GetOrCreatePropertyInitializer()
         {
-            var initializer = _propertyInitializerCache.GetOrAdd((_sourceType, _destinationType), _ => CreateObjecetInitializer());
+            var initializer = _memberInitCache.GetOrAdd((_sourceType, _destinationType), _ => CreateObjecetInitializer());
             return initializer;
         }
 
         private static Func<TSource, TDestination> GetOrCreateConstructorInitializer()
         {
-            var initializer = _constructorInitializerCache.GetOrAdd((_sourceType, _destinationType), _ => CreateConstructorInititializer());
+            var initializer = _constructorCache.GetOrAdd((_sourceType, _destinationType), _ => CreateConstructorInititializer());
             return initializer;
         }
         private static Action<TSource, TDestination> GetOrCreatePropertyAssign()
