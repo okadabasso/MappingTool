@@ -30,6 +30,10 @@ public class MappingContext
     {
         return MappedObjects.Contains(source);
     }
+    public void MarkAsMapped(object source)
+    {
+        MappedObjects.Add(source);
+    }
 }
 
 

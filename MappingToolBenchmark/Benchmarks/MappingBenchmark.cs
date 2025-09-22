@@ -39,7 +39,7 @@ namespace MappingToolTest.Benchmarks
             });
             _autoMapper = config.CreateMapper();
 
-            _simpleMapper = MapperFactory<Source, Destination>.CreateMapper();
+            _simpleMapper = new MapperFactory<Source, Destination>().CreateMapper();
             // テストデータの準備
             _sourceList = new List<Source>();
             for (int i = 0; i < 1000; i++)

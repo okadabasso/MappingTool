@@ -9,9 +9,9 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/ConsoleApp1/bin/Debug/net8.0/ConsoleApp1.dll",
-            "args": [],
-            "cwd": "${workspaceFolder}/ConsoleApp1",
+            "program": "${workspaceFolder}/ConsoleApp2/bin/Debug/net9.0/ConsoleApp2.dll",
+            "args": ["sample", "method4"],
+            "cwd": "${workspaceFolder}/ConsoleApp2",
             "console": "internalConsole",
             "stopAtEntry": false
         },

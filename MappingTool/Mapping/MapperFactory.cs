@@ -100,7 +100,10 @@ namespace MappingTool.Mapping
                 {
                     continue;
                 }
-
+                if (destinationProperty.PropertyType.IsClass && destinationProperty.PropertyType != typeof(string))
+                {
+                    continue;
+                }
                 var sourceProperty = _sourceType.GetProperty(destinationProperty.Name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
                 if (sourceProperty == null)
                 {
@@ -140,6 +143,10 @@ namespace MappingTool.Mapping
             foreach (var destinationProperty in _destinationType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
                 if (!destinationProperty.CanWrite)
+                {
+                    continue;
+                }
+                if (destinationProperty.PropertyType.IsClass && destinationProperty.PropertyType != typeof(string))
                 {
                     continue;
                 }
@@ -190,6 +197,11 @@ namespace MappingTool.Mapping
                 {
                     arguments.Add(Expression.Default(parameter.ParameterType));
                 }
+                else if (sourceProperty.PropertyType.IsClass && sourceProperty.PropertyType != typeof(string))
+                {
+                    continue;
+                }
+
                 else
                 {
                     arguments.Add(Expression.Property(sourceParameter, sourceProperty));

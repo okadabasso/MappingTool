@@ -9,7 +9,7 @@ internal class LoggingFilter(ConsoleAppFilter next) : ConsoleAppFilter(next) // 
     public override async Task InvokeAsync(ConsoleAppContext context, CancellationToken cancellationToken)
     {
         // You can access the logger from the context
-        ConsoleApp.Log(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + context.CommandName + " start");
+        ConsoleApp.Log(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.ffff ") + context.CommandName + " start");
         try
         {
             /* on before */
@@ -23,7 +23,7 @@ internal class LoggingFilter(ConsoleAppFilter next) : ConsoleAppFilter(next) // 
         }
         finally
         {
-            ConsoleApp.Log(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + context.CommandName + " end");
+            ConsoleApp.Log(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.ffff ") + context.CommandName + " end");
         }
     }
 }
