@@ -20,7 +20,7 @@ public class Sample1Command
         var destination = new DestinationData();
 
         var context = new MappingContext();
-        var mapper = MapperFactory<SourceData, DestinationData>.CreateMapper();
+        var mapper = new MapperFactory<SourceData, DestinationData>().CreateMapper();
         mapper.Map(source, destination);
 
         _logger.LogInformation("Mapping completed: Id={Id}, Name={Name}", destination.Id, destination.Name);

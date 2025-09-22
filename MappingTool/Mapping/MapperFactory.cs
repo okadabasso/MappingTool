@@ -45,7 +45,7 @@ namespace MappingTool.Mapping
         {
         }
 
-        public static IMapper<TSource, TDestination> CreateMapper()
+        public IMapper<TSource, TDestination> CreateMapper()
         {
             Action<TSource, TDestination> propertyAssign = null!;
             Func<TSource, TDestination> objectInitializer = null!;
@@ -86,7 +86,7 @@ namespace MappingTool.Mapping
             return new SimpleMapper<TSource, TDestination>( objectInitializer, propertyAssign);
         }
 
-        private static Action<TSource, TDestination> CreatePropertyAssign()
+        private Action<TSource, TDestination> CreatePropertyAssign()
         {
 
             var expressionList = new List<Expression>();
@@ -125,7 +125,7 @@ namespace MappingTool.Mapping
 
             return lambda.Compile();
         }
-        private static Func<TSource, TDestination> CreateObjecetInitializer()
+        private Func<TSource, TDestination> CreateObjecetInitializer()
         {
             var constructor = _destinationType.GetConstructor(Type.EmptyTypes);
             if (constructor == null)
@@ -167,7 +167,7 @@ namespace MappingTool.Mapping
 
             return lambda.Compile();
         }
-        private static Func<TSource, TDestination> CreateConstructorInititializer()
+        private Func<TSource, TDestination> CreateConstructorInititializer()
         {
             var constructor = GetPrimaryConstructor();
             if (constructor == null)
@@ -200,7 +200,7 @@ namespace MappingTool.Mapping
             var lambda = Expression.Lambda<Func<TSource, TDestination>>(newExpression, sourceParameter);
             return lambda.Compile();
         }
-        private static ConstructorInfo? GetPrimaryConstructor()
+        private ConstructorInfo? GetPrimaryConstructor()
         {
             // すべてのパブリックなインスタンスコンストラクターを取得
             var constructors = _destinationType.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
@@ -216,18 +216,18 @@ namespace MappingTool.Mapping
             return primaryConstructor;
         }
 
-        private static Func<TSource, TDestination> GetOrCreatePropertyInitializer()
+        private Func<TSource, TDestination> GetOrCreatePropertyInitializer()
         {
             var initializer = _memberInitCache.GetOrAdd((_sourceType, _destinationType), _ => CreateObjecetInitializer());
             return initializer;
         }
 
-        private static Func<TSource, TDestination> GetOrCreateConstructorInitializer()
+        private Func<TSource, TDestination> GetOrCreateConstructorInitializer()
         {
             var initializer = _constructorCache.GetOrAdd((_sourceType, _destinationType), _ => CreateConstructorInititializer());
             return initializer;
         }
-        private static Action<TSource, TDestination> GetOrCreatePropertyAssign()
+        private Action<TSource, TDestination> GetOrCreatePropertyAssign()
         {
             var initializer = _propertyAssignCache.GetOrAdd((_sourceType, _destinationType), _ => CreatePropertyAssign());
             return initializer;
