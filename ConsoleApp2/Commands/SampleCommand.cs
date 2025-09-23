@@ -72,12 +72,11 @@ public class Sample1Command
         };
         source.Detail.Parent = source; // Create circular reference
 
-        var context = new MappingContext { MaxRecursionDepth = 2 };
+        var context = new MappingContext();
         Func<MappingContext, SourceData, DestinationData> mapDestination = null!;
         mapDestination = (ctx, src) =>
         {
             if (src == null) return null!;
-            ctx.EnterRecursion();
             var dest = new DestinationData
             {
                 Id = src.Id,
@@ -99,7 +98,6 @@ public class Sample1Command
                     : null!
             };
             ctx.MappedObjects.Add(src);
-            ctx.ExitRecursion();
             return dest;
         };
         var lambda = (Func<SourceData, DestinationData>)(src => mapDestination(context, src));
@@ -139,7 +137,7 @@ public class Sample1Command
             Expression.Block(
                 Expression.Call(contextParameter, markAsMapped, sourceParameter),
                 Expression.New(typeof(DestinationData).GetConstructor(Type.EmptyTypes)!)
-       
+
             )
         );
 
@@ -158,11 +156,134 @@ public class Sample1Command
         Console.WriteLine($"{destination.Id}, {destination.Name}");
 
     }
-    private void DebugView(Expression expr)
+    [Command("method5")]
+    public void Execute5()
+    {
+        var source = new SourceData
+        {
+            Id = 1,
+            Name = "Source",
+            Detail = new NestedSource
+            {
+                Id = 2,
+                Name = "Nested Source",
+                Parent = null!
+            }
+        };
+        // 循環参照オブジェクト
+        source.Detail.Parent = source; // Create circular reference
+        var mapper = new MapperFactory<SourceData, DestinationData>().CreateMapper() as SimpleMapper<SourceData, DestinationData>;
+        if (mapper == null)
+        {
+            Console.WriteLine("Mapper is null");
+            return;
+        }
+        var destination = mapper.Map(source);
+
+        _logger.LogInformation("Mapping completed: Id={Id}, Name={Name}", destination.Id, destination.Name);
+        if (destination.Detail != null)
+        {
+            _logger.LogInformation("Nested Mapping: Id={Id}, Name={Name}", destination.Detail.Id, destination.Detail.Name);
+            if (destination.Detail.Parent != null)
+            {
+                _logger.LogInformation("Deep Nested Mapping: Id={Id}, Name={Name}", destination.Detail.Parent.Id, destination.Detail.Parent.Name);
+            }
+            else
+            {
+                _logger.LogInformation("Deep Nested Mapping: Parent is null");
+            }
+        }
+
+    }
+    [Command("method6")]
+    public void Execute6()
+    {
+        var source = new SourceRecord(1, "Source", new NestedSourceRecord(2, "Nested Source", null));
+        
+        // 循環参照オブジェクト
+        source = source with { Detail = source.Detail with { Parent = source } };
+        var mapper = new MapperFactory<SourceRecord, DestinationRecord>().CreateMapper();
+        if (mapper == null)
+        {
+            Console.WriteLine("Mapper is null");
+            return;
+        }
+        var destination = mapper.Map(source);
+
+        _logger.LogInformation("Mapping completed: Id={Id}, Name={Name}", destination.Id, destination.Name);
+        if (destination.Detail != null)
+        {
+            _logger.LogInformation("Nested Mapping: Id={Id}, Name={Name}", destination.Detail.Id, destination.Detail.Name);
+            if (destination.Detail.Parent != null)
+            {
+                _logger.LogInformation("Deep Nested Mapping: Id={Id}, Name={Name}", destination.Detail.Parent.Id, destination.Detail.Parent.Name);
+            }
+            else
+            {
+                _logger.LogInformation("Deep Nested Mapping: Parent is null");
+            }
+        }
+
+    }
+    [Command("method7")]
+    public void Execute7()
+    {
+        var source = new SourceData
+        {
+            Id = 1,
+            Name = "Source",
+            Detail = new NestedSource
+            {
+                Id = 2,
+                Name = "Nested Source",
+                Parent = null!
+            },
+            Details = new NestedSource[]
+            {
+                new NestedSource { Id = 3, Name = "List Item 1", Parent = null! },
+                new NestedSource { Id = 4, Name = "List Item 2", Parent = null! },
+                new NestedSource { Id = 5, Name = "List Item 3", Parent = null! },
+
+            }
+        };
+        // 循環参照オブジェクト
+        source.Detail.Parent = source; // Create circular reference
+        var mapper = new MapperFactory<SourceData, DestinationData>().CreateMapper() as SimpleMapper<SourceData, DestinationData>;
+        if (mapper == null)
+        {
+            Console.WriteLine("Mapper is null");
+            return;
+        }
+        var destination = mapper.Map(source);
+
+        _logger.LogInformation("Mapping completed: Id={Id}, Name={Name}", destination.Id, destination.Name);
+        if (destination.Detail != null)
+        {
+            _logger.LogInformation("Nested Mapping: Id={Id}, Name={Name}", destination.Detail.Id, destination.Detail.Name);
+            if (destination.Detail.Parent != null)
+            {
+                _logger.LogInformation("Deep Nested Mapping: Id={Id}, Name={Name}", destination.Detail.Parent.Id, destination.Detail.Parent.Name);
+            }
+            else
+            {
+                _logger.LogInformation("Deep Nested Mapping: Parent is null");
+            }
+            if (destination.Details != null)
+            {
+                foreach (var item in destination.Details)
+                {
+                    _logger.LogInformation("List Item: Id={Id}, Name={Name}", item.Id, item.Name);
+                }
+            }
+        }
+
+    }
+
+    public static void DebugView(Expression expr)
     {
         // DebugView プロパティをリフレクションで取得
         var debugViewProp = typeof(Expression).GetProperty("DebugView", BindingFlags.Instance | BindingFlags.NonPublic);
-        string debugView = (string)debugViewProp.GetValue(expr);
+        string debugView = (string)(debugViewProp?.GetValue(expr) ?? "");
 
         Console.WriteLine(debugView);
     }
@@ -172,12 +293,14 @@ public class Sample1Command
         public string Name { get; set; } = null!;
 
         public NestedSource? Detail { get; set; } = null;
+        public NestedSource[] Details { get; set; } = Array.Empty<NestedSource>();
     }
     class DestinationData
     {
         public int Id { get; set; }
         public string Name { get; set; } = null!;
         public NestedDestination? Detail { get; set; } = null;
+        public NestedDestination[] Details { get; set; } = Array.Empty<NestedDestination>();
     }
     class NestedSource
     {
@@ -191,4 +314,8 @@ public class Sample1Command
         public string Name { get; set; } = null!;
         public DestinationData Parent { get; set; } = null!;
     }
+    record SourceRecord(int Id, string Name, NestedSourceRecord? Detail);
+    record NestedSourceRecord(int Id, string Name, SourceRecord? Parent);
+    record DestinationRecord(int Id, string Name, NestedDestinationRecord? Detail);
+    record NestedDestinationRecord(int Id, string Name, DestinationRecord? Parent);
 }
