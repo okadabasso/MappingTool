@@ -238,7 +238,7 @@ public class Sample1Command
                 Name = "Nested Source",
                 Parent = null!
             },
-            Details = new NestedSource[]
+            Details = new List<NestedSource>
             {
                 new NestedSource { Id = 3, Name = "List Item 1", Parent = null! },
                 new NestedSource { Id = 4, Name = "List Item 2", Parent = null! },
@@ -293,14 +293,14 @@ public class Sample1Command
         public string Name { get; set; } = null!;
 
         public NestedSource? Detail { get; set; } = null;
-        public NestedSource[] Details { get; set; } = Array.Empty<NestedSource>();
+        public List<NestedSource> Details { get; set; } = new List<NestedSource>();
     }
     class DestinationData
     {
         public int Id { get; set; }
         public string Name { get; set; } = null!;
         public NestedDestination? Detail { get; set; } = null;
-        public NestedDestination[] Details { get; set; } = Array.Empty<NestedDestination>();
+        public List<NestedDestination> Details { get; set; } = new List<NestedDestination>();
     }
     class NestedSource
     {

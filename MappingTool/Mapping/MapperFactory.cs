@@ -232,7 +232,7 @@ namespace MappingTool.Mapping
                 else if (sourceProperty.PropertyType.IsClass && sourceProperty.PropertyType != typeof(string))
                 {
                     var sourceAccess = Expression.Property(Expression.Convert(sourceParameter, sourceType), sourceProperty);
-                    var objectInitializer = NestedObjectInitializer(
+                    var objectInitializer = CreateNestedObjectInitializer(
                         sourceProperty.PropertyType,
                         parameter.ParameterType,
                         sourceAccess,
@@ -329,49 +329,49 @@ namespace MappingTool.Mapping
             if (_typeAnalyzer.IsPrimitiveArrayType(destinationProperty.PropertyType))
             {
 
-                var arrayInit = Expression.NewArrayInit(
+                var arrayExpression = Expression.NewArrayInit(
                     destinationProperty.PropertyType.GetElementType()!,
                     sourceAccess
                 );
 
-                return Expression.Convert(arrayInit, destinationProperty.PropertyType);
+                return Expression.Convert(arrayExpression, destinationProperty.PropertyType);
             }
             if (_typeAnalyzer.IsComplexArrayType(destinationProperty.PropertyType))
             {
-                var arrayInit = CreateComplexArrayExpression(
+                var arrayExpression = CreateComplexArrayExpression(
                     sourceProperty.PropertyType,
                     destinationProperty.PropertyType,
                     sourceAccess,
                     mappingContextParameter
                 );
 
-                return Expression.Convert(arrayInit, destinationProperty.PropertyType);
+                return Expression.Convert(arrayExpression, destinationProperty.PropertyType);
             }
             if (_typeAnalyzer.IsPrimitiveEnumerableType(destinationProperty.PropertyType))
             {
-                var listInit = CreatePrimitiveEnumerableExpression(
+                var listExpression = CreatePrimitiveEnumerableExpression(
                     sourceProperty.PropertyType,
                     destinationProperty.PropertyType,
                     sourceAccess,
                     mappingContextParameter
                 );
-                return Expression.Convert(listInit, destinationProperty.PropertyType);
+                return Expression.Convert(listExpression, destinationProperty.PropertyType);
             }
             if (_typeAnalyzer.IsComplexEnumerableType(destinationProperty.PropertyType))
             {
-                var listInit = CreateComplexEnumerableExpression(
+                var listExpression = CreateComplexEnumerableExpression(
                     sourceProperty.PropertyType,
                     destinationProperty.PropertyType,
                     sourceAccess,
                     mappingContextParameter
                 );
-                return Expression.Convert(listInit, destinationProperty.PropertyType);
+                return Expression.Convert(listExpression, destinationProperty.PropertyType);
             }
 
             if (_typeAnalyzer.IsComplexType(destinationProperty.PropertyType))
             {
                 // ネストされたオブジェクトのマッピング
-                var objectInitializer = NestedObjectInitializer(
+                var objectInitializer = CreateNestedObjectInitializer(
                     sourceProperty.PropertyType,
                     destinationProperty.PropertyType,
                     sourceAccess,
@@ -384,7 +384,7 @@ namespace MappingTool.Mapping
             return Expression.Convert(directAccess, destinationProperty.PropertyType);
 
         }
-        private Expression NestedObjectInitializer(
+        private Expression CreateNestedObjectInitializer(
             Type sourcePropertyType,
             Type destinationPropertyType,
             Expression propertyExpression,
