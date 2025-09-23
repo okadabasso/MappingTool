@@ -43,7 +43,14 @@ public class TypeAnalyzer : ITypeAnalyzer
     /// <returns></returns>
     public bool IsPrimitiveType(Type type)
     {
-        return type.IsPrimitive || type.IsEnum || type == typeof(string) || type == typeof(DateTime) || type == typeof(DateTimeOffset);
+        return type.IsPrimitive
+        || type.IsEnum
+        || type == typeof(decimal)
+        || type == typeof(string)
+        || type == typeof(DateTime)
+        || type == typeof(DateTimeOffset)
+        || type == typeof(Guid)
+        || type == typeof(TimeSpan);
     }
     /// <summary>
     /// Checks if the specified type is a nullable type.

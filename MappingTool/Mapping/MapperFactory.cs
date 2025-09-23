@@ -37,10 +37,37 @@ namespace MappingTool.Mapping
         private static readonly LRUCache<(Type, Type), Action<MappingContext, object, object>> _propertyAssignCache = new(100);
 
         private ITypeAnalyzer _typeAnalyzer = new TypeAnalyzer();
+        public static MethodInfo EnumerableSelect(Type enumerableType, Type elementType) => typeof(Enumerable)
+        .GetMethods(BindingFlags.Public | BindingFlags.Static)
+        .First(m => m.Name == "Select" && m.GetParameters().Length == 2)
+        .MakeGenericMethod(enumerableType, elementType);
+
+        public static MethodInfo EnumerableToList(Type elementType) => typeof(Enumerable)
+        .GetMethods(BindingFlags.Public | BindingFlags.Static)
+        .First(m => m.Name == "ToList" && m.GetParameters().Length == 1)
+        .MakeGenericMethod(elementType);
+
+        public static MethodInfo EnumerableToArray(Type elementType) => typeof(Enumerable)
+        .GetMethods(BindingFlags.Public | BindingFlags.Static)
+        .First(m => m.Name == "ToArray" && m.GetParameters().Length == 1)
+        .MakeGenericMethod(elementType);
+
+        
+
         static MapperFactory()
         {
         }
-
+        public MapperFactory(bool allowRecursion = false, int maxRecursionDepth = DefaultMaxRecursionDepth)
+        {
+            if (allowRecursion)
+            {
+                _maxRecursionDepth = maxRecursionDepth;
+            }
+            else
+            {
+                _maxRecursionDepth = 1;
+            }
+        }
         public IMapper<TSource, TDestination> CreateMapper()
         {
             var sourceType = typeof(TSource);
@@ -137,9 +164,15 @@ namespace MappingTool.Mapping
                 }
                 if (sourceProperty.CanRead)
                 {
-                    var sourceAccess = Expression.Property(Expression.Convert(source, sourceType), sourceProperty);
+                    var sourceAccess = CreatePropertyValueExpression(
+                        destinationProperty.PropertyType,
+                        sourceType,
+                        sourceProperty,
+                        source,
+                        mappingContextParameter);
+                    
                     var destinationAccess = Expression.Property(Expression.Convert(destination, destinationType), destinationProperty);
-                    var assign = Expression.Assign(destinationAccess, Expression.Convert(sourceAccess, destinationProperty.PropertyType));
+                    var assign = Expression.Assign(destinationAccess, sourceAccess);
 
                     expressionList.Add(assign);
                 }
@@ -185,9 +218,9 @@ namespace MappingTool.Mapping
                 if (sourceProperty.CanRead)
                 {
                     var expression = CreatePropertyValueExpression(
+                        destinationProperty.PropertyType,
                         sourceType,
                         sourceProperty,
-                        destinationProperty,
                         source,
                         mappingContextParameter);
                     var binding = Expression.Bind(destinationProperty, expression);
@@ -228,22 +261,18 @@ namespace MappingTool.Mapping
                 if (sourceProperty == null)
                 {
                     arguments.Add(Expression.Default(parameter.ParameterType));
+                    continue;
                 }
-                else if (sourceProperty.PropertyType.IsClass && sourceProperty.PropertyType != typeof(string))
+                if (sourceProperty.CanRead)
                 {
-                    var sourceAccess = Expression.Property(Expression.Convert(sourceParameter, sourceType), sourceProperty);
-                    var objectInitializer = CreateNestedObjectInitializer(
-                        sourceProperty.PropertyType,
+                        var expression = CreatePropertyValueExpression(
                         parameter.ParameterType,
-                        sourceAccess,
-                        mappingContextParameter
-                    );
-                    arguments.Add(Expression.Convert(objectInitializer, parameter.ParameterType));
-                }
-                else
-                {
-                    var sourceAccess = Expression.Property(Expression.Convert(sourceParameter, sourceType), sourceProperty);
-                    arguments.Add(Expression.Convert(sourceAccess, parameter.ParameterType));
+                        sourceType,
+                        sourceProperty,
+                        sourceParameter,
+                        mappingContextParameter);
+                    arguments.Add(Expression.Convert(expression, parameter.ParameterType));
+                
                 }
             }
             var newExpression = Expression.New(constructor, arguments);
@@ -305,83 +334,84 @@ namespace MappingTool.Mapping
             }
         }
         private Expression CreatePropertyValueExpression(
+            Type destinationPropertyType,
             Type sourceType,
             PropertyInfo sourceProperty,
-            PropertyInfo destinationProperty,
             ParameterExpression sourceParameter,
             ParameterExpression mappingContextParameter)
         {
             if (sourceProperty == null || !sourceProperty.CanRead)
             {
-                var defaultParametr = CreateDefaultValueExpression(destinationProperty.PropertyType);
+                var defaultParametr = CreateDefaultValueExpression(destinationPropertyType);
                 return defaultParametr;
             }
 
             var sourceAccess = Expression.Property(Expression.Convert(sourceParameter, sourceType), sourceProperty);
-            if (_typeAnalyzer.IsPrimitiveType(destinationProperty.PropertyType))
+            if (_typeAnalyzer.IsPrimitiveType(destinationPropertyType))
             {
-                return Expression.Convert(sourceAccess, destinationProperty.PropertyType);
+                return Expression.Convert(sourceAccess, destinationPropertyType);
             }
-            if (_typeAnalyzer.IsNullableType(destinationProperty.PropertyType) && _typeAnalyzer.IsPrimitiveType(Nullable.GetUnderlyingType(destinationProperty.PropertyType)!))
+            if (_typeAnalyzer.IsNullableType(destinationPropertyType) && _typeAnalyzer.IsPrimitiveType(Nullable.GetUnderlyingType(destinationPropertyType)!))
             {
-                return Expression.Convert(sourceAccess, destinationProperty.PropertyType);
+                return Expression.Convert(sourceAccess, destinationPropertyType);
             }
-            if (_typeAnalyzer.IsPrimitiveArrayType(destinationProperty.PropertyType))
+            if (_typeAnalyzer.IsPrimitiveArrayType(destinationPropertyType))
             {
 
-                var arrayExpression = Expression.NewArrayInit(
-                    destinationProperty.PropertyType.GetElementType()!,
-                    sourceAccess
-                );
-
-                return Expression.Convert(arrayExpression, destinationProperty.PropertyType);
-            }
-            if (_typeAnalyzer.IsComplexArrayType(destinationProperty.PropertyType))
-            {
-                var arrayExpression = CreateComplexArrayExpression(
+                var listExpression = CreatePrimitiveArrayExpression(
                     sourceProperty.PropertyType,
-                    destinationProperty.PropertyType,
+                    destinationPropertyType,
                     sourceAccess,
                     mappingContextParameter
                 );
-
-                return Expression.Convert(arrayExpression, destinationProperty.PropertyType);
+                return Expression.Convert(listExpression, destinationPropertyType);
             }
-            if (_typeAnalyzer.IsPrimitiveEnumerableType(destinationProperty.PropertyType))
+            if (_typeAnalyzer.IsPrimitiveEnumerableType(destinationPropertyType))
             {
                 var listExpression = CreatePrimitiveEnumerableExpression(
                     sourceProperty.PropertyType,
-                    destinationProperty.PropertyType,
+                    destinationPropertyType,
                     sourceAccess,
                     mappingContextParameter
                 );
-                return Expression.Convert(listExpression, destinationProperty.PropertyType);
+                return Expression.Convert(listExpression, destinationPropertyType);
             }
-            if (_typeAnalyzer.IsComplexEnumerableType(destinationProperty.PropertyType))
+            if (_typeAnalyzer.IsComplexArrayType(destinationPropertyType))
+            {
+                var arrayExpression = CreateComplexArrayExpression(
+                    sourceProperty.PropertyType,
+                    destinationPropertyType,
+                    sourceAccess,
+                    mappingContextParameter
+                );
+
+                return Expression.Convert(arrayExpression, destinationPropertyType);
+            }
+            if (_typeAnalyzer.IsComplexEnumerableType(destinationPropertyType))
             {
                 var listExpression = CreateComplexEnumerableExpression(
                     sourceProperty.PropertyType,
-                    destinationProperty.PropertyType,
+                    destinationPropertyType,
                     sourceAccess,
                     mappingContextParameter
                 );
-                return Expression.Convert(listExpression, destinationProperty.PropertyType);
+                return Expression.Convert(listExpression, destinationPropertyType);
             }
 
-            if (_typeAnalyzer.IsComplexType(destinationProperty.PropertyType))
+            if (_typeAnalyzer.IsComplexType(destinationPropertyType))
             {
                 // ネストされたオブジェクトのマッピング
                 var objectInitializer = CreateNestedObjectInitializer(
                     sourceProperty.PropertyType,
-                    destinationProperty.PropertyType,
+                    destinationPropertyType,
                     sourceAccess,
                     mappingContextParameter
                 );
-                return Expression.Convert(objectInitializer, destinationProperty.PropertyType);
+                return Expression.Convert(objectInitializer, destinationPropertyType);
             }
 
             var directAccess = Expression.Property(Expression.Convert(sourceParameter, sourceType), sourceProperty);
-            return Expression.Convert(directAccess, destinationProperty.PropertyType);
+            return Expression.Convert(directAccess, destinationPropertyType);
 
         }
         private Expression CreateNestedObjectInitializer(
@@ -417,6 +447,19 @@ namespace MappingTool.Mapping
 
             return nullOrObject;
         }
+        private Expression CreatePrimitiveArrayExpression(
+            Type sourcePropertyType,
+            Type destinationPropertyType,
+            Expression sourceAccess,
+            ParameterExpression mappingContextParameter
+        )
+        {
+            var toListCall = Expression.Call(
+                EnumerableToArray(destinationPropertyType.GetElementType()!),
+                Expression.Convert(sourceAccess, sourcePropertyType)
+            );
+            return Expression.Convert(toListCall, destinationPropertyType);
+        }
         private Expression CreatePrimitiveEnumerableExpression(
             Type sourcePropertyType,
             Type destinationPropertyType,
@@ -424,12 +467,9 @@ namespace MappingTool.Mapping
             ParameterExpression mappingContextParameter
         )
         {
-            var toListMethod = typeof(Enumerable).GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .First(m => m.Name == "ToList" && m.GetParameters().Length == 1)
-                .MakeGenericMethod(destinationPropertyType.GetGenericArguments()[0]);
             var toListCall = Expression.Call(
-                toListMethod,
-                Expression.Convert(sourceAccess, typeof(IEnumerable<>).MakeGenericType(destinationPropertyType.GetGenericArguments()[0]))
+                EnumerableToList(destinationPropertyType.GetGenericArguments()[0]),
+                Expression.Convert(sourceAccess, typeof(IEnumerable<>).MakeGenericType(sourcePropertyType.GetGenericArguments()[0]))
             );
             return Expression.Convert(toListCall, destinationPropertyType);
         }
@@ -450,14 +490,6 @@ namespace MappingTool.Mapping
                 mappingContextParameter
             );
 
-            var selectMethod = typeof(Enumerable).GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .First(m => m.Name == "Select" && m.GetParameters().Length == 2)
-                .MakeGenericMethod(sourceElementType, destinationElementType);
-
-            var toListMethod = typeof(Enumerable).GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .First(m => m.Name == "ToList" && m.GetParameters().Length == 1)
-                .MakeGenericMethod(destinationElementType);
-
             var sourceParam = Expression.Parameter(sourceElementType, "x");
             var selectorLambda = Expression.Lambda(
                 Expression.Convert(
@@ -472,12 +504,12 @@ namespace MappingTool.Mapping
             );
 
             var selectCall = Expression.Call(
-                selectMethod,
+                EnumerableSelect(sourceElementType, destinationElementType),
                 Expression.Convert(sourceAccess, typeof(IEnumerable<>).MakeGenericType(sourceElementType)),
                 selectorLambda
             );
             var toListCall = Expression.Call(
-                toListMethod,
+                EnumerableToList(destinationElementType),
                 selectCall
             );
             return Expression.Convert(toListCall, destinationPropertyType);
@@ -498,14 +530,6 @@ namespace MappingTool.Mapping
                 mappingContextParameter
             );
 
-            var selectMethod = typeof(Enumerable).GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .First(m => m.Name == "Select" && m.GetParameters().Length == 2)
-                .MakeGenericMethod(sourceElementType, destinationElementType);
-
-            var toArrayMethod = typeof(Enumerable).GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .First(m => m.Name == "ToArray" && m.GetParameters().Length == 1)
-                .MakeGenericMethod(destinationElementType);
-
             var sourceParam = Expression.Parameter(sourceElementType, "x");
             var selectorLambda = Expression.Lambda(
                 Expression.Convert(
@@ -520,12 +544,12 @@ namespace MappingTool.Mapping
             );
 
             var selectCall = Expression.Call(
-                selectMethod,
+                EnumerableSelect(sourceElementType, destinationElementType),
                 Expression.Convert(sourceAccess, typeof(IEnumerable<>).MakeGenericType(sourceElementType)),
                 selectorLambda
             );
             var toListCall = Expression.Call(
-                toArrayMethod,
+                EnumerableToArray(destinationElementType),
                 selectCall
             );
             return Expression.Convert(toListCall, destinationPropertyType);
@@ -551,11 +575,11 @@ namespace MappingTool.Mapping
 
         private bool EnterRecursion()
         {
-            _currentRecursionDepth++;
             if (_currentRecursionDepth >= _maxRecursionDepth)
             {
                 return false;
             }
+            _currentRecursionDepth++;
             return true;
         }
         private bool ExitRecursion()

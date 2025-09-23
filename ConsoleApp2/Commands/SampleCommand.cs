@@ -278,6 +278,59 @@ public class Sample1Command
         }
 
     }
+    [Command("method8")]
+    public void Execute8()
+    {
+        var source = new SourceData
+        {
+            Id = 1,
+            Name = "Source",
+            Detail = new NestedSource
+            {
+                Id = 2,
+                Name = "Nested Source",
+                Parent = null!
+            },
+            Details = new List<NestedSource>
+            {
+                new NestedSource { Id = 3, Name = "List Item 1", Parent = null! },
+                new NestedSource { Id = 4, Name = "List Item 2", Parent = null! },
+                new NestedSource { Id = 5, Name = "List Item 3", Parent = null! },
+
+            }
+        };
+        // 循環参照オブジェクト
+        source.Detail.Parent = source; // Create circular reference
+        var mapper = new MapperFactory<SourceData, DestinationData>(allowRecursion: true).CreateMapper();
+        if (mapper == null)
+        {
+            Console.WriteLine("Mapper is null");
+            return;
+        }
+        var destination = mapper.Map(source);
+
+        _logger.LogInformation("Mapping completed: Id={Id}, Name={Name}", destination.Id, destination.Name);
+        if (destination.Detail != null)
+        {
+            _logger.LogInformation("Nested Mapping: Id={Id}, Name={Name}", destination.Detail.Id, destination.Detail.Name);
+            if (destination.Detail.Parent != null)
+            {
+                _logger.LogInformation("Deep Nested Mapping: Id={Id}, Name={Name}", destination.Detail.Parent.Id, destination.Detail.Parent.Name);
+            }
+            else
+            {
+                _logger.LogInformation("Deep Nested Mapping: Parent is null");
+            }
+            if (destination.Details != null)
+            {
+                foreach (var item in destination.Details)
+                {
+                    _logger.LogInformation("List Item: Id={Id}, Name={Name}", item.Id, item.Name);
+                }
+            }
+        }
+
+    }
 
     public static void DebugView(Expression expr)
     {
