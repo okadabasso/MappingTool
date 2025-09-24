@@ -16,6 +16,17 @@
             "stopAtEntry": false
         },
         {
+            "name": "sample method9",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/ConsoleApp2/bin/Debug/net9.0/ConsoleApp2.dll",
+            "args": ["sample", "method9"],
+            "cwd": "${workspaceFolder}/ConsoleApp2",
+            "console": "internalConsole",
+            "stopAtEntry": false
+        },
+        {
             "name": ".NET Core Attach",
             "type": "coreclr",
             "request": "attach"

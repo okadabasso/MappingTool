@@ -467,7 +467,14 @@ namespace MappingTool.Mapping
             ParameterExpression mappingContextParameter
         )
         {
-            return Expression.Convert(sourceAccess, destinationPropertyType);
+            var sourceElementType = sourcePropertyType.GetElementType();
+            var destinationElementType = destinationPropertyType.GetElementType();
+
+            var toListCall = Expression.Call(
+                EnumerableToArray(destinationElementType),
+                Expression.Convert(sourceAccess, typeof(IEnumerable<>).MakeGenericType(sourceElementType))
+            );
+            return Expression.Convert(toListCall, destinationPropertyType);
         }
         private Expression CreatePrimitiveEnumerableExpression(
             Type sourcePropertyType,

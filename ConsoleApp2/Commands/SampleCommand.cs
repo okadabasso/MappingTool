@@ -297,7 +297,8 @@ public class Sample1Command
                 new NestedSource { Id = 4, Name = "List Item 2", Parent = null! },
                 new NestedSource { Id = 5, Name = "List Item 3", Parent = null! },
 
-            }
+            },
+            IntValues = new int[] { 1, 2, 3, 4, 5 }
         };
         // 循環参照オブジェクト
         source.Detail.Parent = source; // Create circular reference
@@ -309,7 +310,7 @@ public class Sample1Command
         }
         var destination = mapper.Map(source);
 
-        _logger.LogInformation("Mapping completed: Id={Id}, Name={Name}", destination.Id, destination.Name);
+        _logger.LogInformation("Mapping completed: Id={Id}, Name={Name}, IntValues={IntValues}", destination.Id, destination.Name, string.Join(", ", destination.IntValues));
         if (destination.Detail != null)
         {
             _logger.LogInformation("Nested Mapping: Id={Id}, Name={Name}", destination.Detail.Id, destination.Detail.Name);
@@ -350,13 +351,14 @@ public class Sample1Command
                 new NestedSource { Id = 4, Name = "List Item 2", Parent = null! },
                 new NestedSource { Id = 5, Name = "List Item 3", Parent = null! },
 
-            }
+            },
+            IntValues = new int[] { 1, 2, 3, 4, 5 }
         };
         // 循環参照オブジェクト
         source.Detail.Parent = source; // Create circular reference
         var destination = new DestinationData(source);
 
-        _logger.LogInformation("Mapping completed: Id={Id}, Name={Name}", destination.Id, destination.Name);
+        _logger.LogInformation("Mapping completed: Id={Id}, Name={Name}, IntValues={IntValues}", destination.Id, destination.Name, string.Join(", ", destination.IntValues));
         if (destination.Detail != null)
         {
             _logger.LogInformation("Nested Mapping: Id={Id}, Name={Name}", destination.Detail.Id, destination.Detail.Name);
@@ -408,6 +410,7 @@ public class Sample1Command
 
         public NestedSource? Detail { get; set; } = null;
         public List<NestedSource> Details { get; set; } = new List<NestedSource>();
+        public int[] IntValues { get; set; } = Array.Empty<int>();
     }
     class DestinationData
     {
@@ -415,6 +418,7 @@ public class Sample1Command
         public string Name { get; set; } = null!;
         public NestedDestination? Detail { get; set; } = null;
         public List<NestedDestination> Details { get; set; } = new List<NestedDestination>();
+        public int[] IntValues { get; set; } = Array.Empty<int>();
         public DestinationData()
         {
 

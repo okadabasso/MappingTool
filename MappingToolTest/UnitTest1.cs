@@ -23,14 +23,10 @@ namespace MappingToolTest
             public int Id { get; set; }
             public string Name { get; set; }
         }
-        public struct DestinationStructWithDefaultConstructor
+        public class DestinationStructWithDefaultConstructor
         {
             public int Id { get; set; }
             public string Name { get; set; } = null!;
-            public DestinationStructWithDefaultConstructor()
-            {
-                
-            }
         }
         public struct DestinationStructWithConstructor
         {
@@ -60,14 +56,13 @@ namespace MappingToolTest
         }
 
         [Fact]
-        public void Map_Struct_ShouldMapPropertiesCorrectly()
+        public void Map_Struct_NoParameterlessConstructor_ThrowsInvalidOperationException()
         {
             // Arrange
             var source = new Source { Id = 2, Name = "StructTest" };
-            
-            Assert.Throws<InvalidOperationException>(() => {
-            var mapper = new MapperFactory<Source, DestinationStruct>().CreateMapper();
-            });
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => new MapperFactory<Source, DestinationStruct>().CreateMapper());
         }
         [Fact]
         public void Map_Struct_MapPropertiesCorrectly_WithDefaultConstructor()
@@ -125,14 +120,14 @@ namespace MappingToolTest
             var mapper = new MapperFactory<Source, Destination>().CreateMapper();
 
             // Act
-            var destinations = mapper.Map(sources);
+            var destinations = mapper.Map(sources).ToList();
 
             // Assert
-            Assert.Equal(sources.Count, destinations.Count());
-            Assert.Equal(sources[0].Id, destinations.ElementAt(0).Id);
-            Assert.Equal(sources[0].Name, destinations.ElementAt(0).Name);
-            Assert.Equal(sources[1].Id, destinations.ElementAt(1).Id);
-            Assert.Equal(sources[1].Name, destinations.ElementAt(1).Name);
+            Assert.Equal(sources.Count, destinations.Count);
+            Assert.Equal(sources[0].Id, destinations[0].Id);
+            Assert.Equal(sources[0].Name, destinations[0].Name);
+            Assert.Equal(sources[1].Id, destinations[1].Id);
+            Assert.Equal(sources[1].Name, destinations[1].Name);
         }
 
         [Fact]
