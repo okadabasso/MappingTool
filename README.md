@@ -49,6 +49,14 @@ dotnet run -- sample3 method1
 - "duplicate top-level statements" など SDK/プロジェクトの glob 取り込みの問題が出る場合、プロジェクトの `csproj` の `Compile` include を確認してください。
 - Console サンプルは `ConsoleAppFramework` に依存する箇所があります。もし参照エラーが出る場合は `Experimental1/Experimental1.csproj` のパッケージ参照を確認してください。
 
+EF6 / EF Core 注意事項
+---------------------
+- トラッキングと参照の保持: EF の ChangeTracker はナビゲーションプロパティの参照を管理します。MapperFactory の `preserveReferences` を使う際、エンティティとそのナビゲーションの参照整合性に注意してください。マッピング時に DB エンティティを直接変更するとトラッキングに影響する可能性があります。
+- Lazy-loading / プロキシ: EF Core の Lazy Loading や EF6 のプロキシは型が動的に変わるため、リフレクションや型チェックで想定外の型が渡される場合があります。必要ならマッピング前に `context.Entry(entity).Reference(...).Load()` などで明示的に読み込むか、プロキシを解除して POCO に変換してください。
+- シリアライズとナビゲーション: 循環参照を持つナビゲーションをそのままシリアライズするとループします。`preserveReferences` はマッピングレベルで同一参照を保てますが、JSON シリアライズや外部 APIs 向けに出力する際は DTO に切り分けることを推奨します。
+- DbContext の寿命: 短命な `DbContext`（1 リクエスト/操作ごと）を推奨します。長寿命のコンテキストを使うと ChangeTracker の情報が拡張し、メモリや参照の扱いに影響します。
+- マップ先の更新: エンティティを直接マップ先として使い、そのまま SaveChanges() すると意図しない更新が発生することがあります。変更を明確にするために DTO を経由するか、明示的に EntityState を設定してください。
+
 貢献
 ----
 プルリク歓迎です。変更をローカルでビルドし、テストが通ることを確認してから PR を送ってください。
