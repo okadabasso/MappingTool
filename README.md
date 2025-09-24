@@ -25,9 +25,12 @@ dotnet build MappingTool.sln
 dotnet test MappingTool.sln
 ```
 
+-------------
 サンプルの実行
 -------------
-`Experimental1` プロジェクトには元の ConsoleApp サンプルがコピーされています。
+`Experimental1` と `Experimental2` は実装中の実験コード（experimental/prototype）を格納しています。
+これらのプロジェクトは安定版ライブラリではなく、API やファイル配置、動作が頻繁に変わる可能性があります。実運用用途としては扱わないでください。
+
 以下のようにコマンドを実行できます（例: sample3 の method1 を実行）:
 
 ```powershell
