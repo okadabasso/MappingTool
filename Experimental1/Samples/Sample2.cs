@@ -1,0 +1,13 @@
+using System;
+using Experimental1.Data;
+
+namespace Experimental1.Samples
+{
+    public class Sample2
+    {
+        public void Run()
+        {
+            Console.WriteLine("Sample2");
+        }
+    }
+}

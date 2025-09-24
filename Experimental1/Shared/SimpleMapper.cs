@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Linq;
@@ -7,10 +7,10 @@ using System.Text;
 using System.Threading.Tasks;
 
 using System.Reflection;
-using ConsoleApp1.Data;
+using Experimental1.Data;
 using System.Security.AccessControl;
 
-namespace ConsoleApp1.Shared
+namespace Experimental1.Shared
 {
     public class SimpleMapper<TSource, TDestination> : ISimpleMapper
         where TSource : notnull
@@ -237,6 +237,7 @@ namespace ConsoleApp1.Shared
             var source = Expression.Parameter(typeof(TSource), "source");
 
             var memberBindings = new List<MemberBinding>();
+
             foreach (var sourceProperty in typeof(TSource).GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
                 var destinationProperty = typeof(TDestination).GetProperty(sourceProperty.Name);

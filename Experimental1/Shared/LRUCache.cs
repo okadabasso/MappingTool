@@ -1,4 +1,4 @@
-namespace ConsoleApp1.Shared;
+namespace Experimental1.Shared;
 
 using System.Collections.Generic;
 

@@ -2,7 +2,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
-namespace ConsoleApp1.Shared;
+namespace Experimental1.Shared;
 
 public class MapperFactory<TSource, TDestination>
     where TSource : class
@@ -111,7 +111,7 @@ public class MapperFactory
         var lambda = Expression.Lambda<Func<TSource, TDestination>>(memberInit, source);
         return lambda.Compile();
     }
-    static MemberBinding? CreateMemberBinding(Expression sourceParameeter, PropertyInfo sourceProperty, PropertyInfo destinationProperty)
+    static MemberBinding? CreateMemberBinding(Expression sourceParameeter, PropertyInfo? sourceProperty, PropertyInfo destinationProperty)
     {
         if (sourceProperty == null)
         {
