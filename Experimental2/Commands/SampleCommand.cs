@@ -3,7 +3,7 @@ using ConsoleAppFramework;
 using Microsoft.Extensions.Logging;
 using System.Linq.Expressions;
 using System.Reflection;
-namespace ConsoleApp2.Commands;
+namespace Experimental2.Commands;
 
 [ConsoleAppFramework.RegisterCommands("sample")]
 public class Sample1Command
@@ -198,7 +198,7 @@ public class Sample1Command
     [Command("method6")]
     public void Execute6()
     {
-        var source = new SourceRecord(1, "Source", new NestedSourceRecord(2, "Nested Source", null));
+        var source = new SourceRecord(1, "Source", new NestedSourceRecord(2, "Nested Source", null!));
 
         // 循環参照オブジェクト
         source = source with { Detail = source.Detail with { Parent = source } };
@@ -441,10 +441,10 @@ public class Sample1Command
         public string Name { get; set; } = null!;
         public DestinationData Parent { get; set; } = null!;
     }
-    record SourceRecord(int Id, string Name, NestedSourceRecord? Detail);
-    record NestedSourceRecord(int Id, string Name, SourceRecord? Parent);
-    record DestinationRecord(int Id, string Name, NestedDestinationRecord? Detail);
-    record NestedDestinationRecord(int Id, string Name, DestinationRecord? Parent);
+    record SourceRecord(int Id, string Name, NestedSourceRecord Detail);
+    record NestedSourceRecord(int Id, string Name, SourceRecord Parent);
+    record DestinationRecord(int Id, string Name, NestedDestinationRecord Detail);
+    record NestedDestinationRecord(int Id, string Name, DestinationRecord Parent);
 
     public struct SourceStruct
     {

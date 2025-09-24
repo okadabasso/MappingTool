@@ -1,4 +1,4 @@
-namespace ConsoleApp2.Filters;
+namespace Experimental2.Filters;
 
 using ConsoleAppFramework;
 using Microsoft.Extensions.Logging;

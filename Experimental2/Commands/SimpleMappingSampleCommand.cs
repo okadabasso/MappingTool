@@ -1,4 +1,4 @@
-namespace ConsoleApp2.Commands;
+namespace Experimental2.Commands;
 
 using ConsoleAppFramework;
 using MappingTool.Mapping;
