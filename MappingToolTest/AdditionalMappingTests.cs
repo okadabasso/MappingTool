@@ -63,10 +63,10 @@ namespace MappingToolTest
 
             var dto = mapper.Map(src);
 
-            // Current implementation marks nested objects as mapped and returns null for subsequent occurrences
-            // so the second property may be null. Assert that first mapping produced an object and second is null.
+            // With preserveReferences=true (default), the same source reference maps to the same
+            // destination instance, so both properties should point to the same object.
             Assert.NotNull(dto.A);
-            Assert.Null(dto.B);
+            Assert.Same(dto.A, dto.B);
         }
 
         [Fact]
@@ -80,11 +80,11 @@ namespace MappingToolTest
 
             var dto = mapper.Map(a);
 
-            // If mapping failed due to cycle, it should produce a DTO with B.A == null (blocked by mapping context)
+            // With preserveReferences=true (default), cycles are preserved by returning the same
+            // destination instance for repeated source references. We expect B.A to refer back to the original DTO.
             Assert.NotNull(dto);
             Assert.NotNull(dto.B);
-            // The nested back-reference should be null because we mark as mapped to avoid infinite recursion
-            Assert.Null(dto.B.A);
+            Assert.Same(dto, dto.B.A);
         }
 
         // helper types
