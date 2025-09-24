@@ -1,16 +1,21 @@
-using System.Threading.Tasks;
-using Experimental1.Samples;
-
 namespace Experimental1.Commands;
 
+using Experimental1.Samples;
+using ConsoleAppFramework;
+using Microsoft.Extensions.Logging;
+[ConsoleAppFramework.RegisterCommands("sample3")]
 public class Sample3Command
 {
-    public Sample3Command() { }
-
-    public ValueTask ExecuteAsync(object? context = null)
+    private readonly ILogger<Sample3Command> _logger;
+    public Sample3Command(ILogger<Sample3Command> logger)
     {
-        var s = new Sample3();
-        s.Run();
-        return ValueTask.CompletedTask;
+        _logger = logger;
     }
-}
+
+    [Command("method1")]
+    public void Execute1()
+    {
+        var sample = new Sample3();
+        sample.SampleMethod();
+       
+    }}

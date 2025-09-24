@@ -9,5 +9,9 @@ namespace Experimental1.Samples
         {
             Console.WriteLine("Sample3");
         }
+        public void SampleMethod()
+        {
+            Run();
+        }
     }
 }
