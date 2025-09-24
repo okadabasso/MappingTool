@@ -38,6 +38,26 @@ cd Experimental1
 dotnet run -- sample3 method1
 ```
 
+簡単な使用例
+------------
+以下は `MapperFactory` / `SimpleMapper` を使った簡単なサンプルです。`SourceData` と `DestinationData` は本リポジトリの `Experimental1/Data` にあるサンプル型を想定しています。
+
+```csharp
+// Mapper を作成して単一オブジェクトをマップする
+var mapper = MapperFactory.CreateMapper<SourceData, DestinationData>();
+var src = new SourceData { Id = 1, Name = "Alice" };
+var dst = mapper.Map(src);
+Console.WriteLine($"Id={dst.Id}, Name={dst.Name}");
+
+// シーケンスをマップする
+var list = new List<SourceData> { src, new SourceData { Id = 2, Name = "Bob" } };
+var mapped = mapper.Map(list);
+foreach (var item in mapped) Console.WriteLine(item.Name);
+
+// preserveReferences を有効にして参照の保持をテストする場合は
+// MapperFactory の作成 API で preserveReferences を有効にしてください（実装により異なります）。
+```
+
 開発ノート（設計ハイライト）
 ---------------------------
 - MapperFactory は Expression を用いて高速なマッピングコードを動的生成します。生成コードはプロパティやコンストラクタ初期化子、コレクションのマッピングなどを含みます。
