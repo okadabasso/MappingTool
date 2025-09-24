@@ -134,6 +134,9 @@ namespace MappingTool.Mapping
             ExitRecursion();
             if (_preserveReferences)
             {
+                // To avoid infinite recursion for circular graphs, register a placeholder
+                // before invoking the inner initializer. This way, nested mappings that
+                // encounter the same source can return the placeholder and avoid reentrancy.
                 var inner = objectInitializer;
                 Func<MappingContext, object, object> wrapper = (context, source) =>
                 {
@@ -142,12 +145,32 @@ namespace MappingTool.Mapping
                     {
                         return existing!;
                     }
+
+                    // Register a placeholder object to break recursive cycles.
+                    // Use a boxed null (object) placeholder which will be replaced by the
+                    // actual instance after creation. We must ensure the placeholder is
+                    // distinguishable (we rely on reference equality), and SetMappedDestination
+                    // will overwrite it when we have the real object.
+                    var placeholder = new object();
+                    context.SetMappedDestination(source, placeholder);
+
                     var created = inner(context, source);
+
                     if (created != null)
                     {
+                        // Replace the placeholder with the real created instance.
                         context.SetMappedDestination(source, created);
+                        return created!;
                     }
-                    return created!;
+
+                    // If creation failed, remove placeholder and return null.
+                    // (SetMappedDestination with null fallback behavior uses MappedObjects
+                    // for legacy mode; here preserveReferences is enabled so we remove key.)
+                    if (context.PreservedReferences != null)
+                    {
+                        context.PreservedReferences.Remove(source);
+                    }
+                    return null!;
                 };
                 return wrapper;
             }
@@ -562,12 +585,12 @@ namespace MappingTool.Mapping
             ParameterExpression mappingContextParameter
         )
         {
-            var sourceElementType = sourcePropertyType.GetElementType();
-            var destinationElementType = destinationPropertyType.GetElementType();
+            var sourceElementType = sourcePropertyType.GetElementType()!;
+            var destinationElementType = destinationPropertyType.GetElementType()!;
 
             var toListCall = Expression.Call(
                 EnumerableToArray(destinationElementType),
-                Expression.Convert(sourceAccess, typeof(IEnumerable<>).MakeGenericType(sourceElementType))
+                Expression.Convert(sourceAccess, typeof(IEnumerable<>).MakeGenericType(sourceElementType!))
             );
             return Expression.Convert(toListCall, destinationPropertyType);
         }
@@ -578,8 +601,8 @@ namespace MappingTool.Mapping
             ParameterExpression mappingContextParameter
         )
         {
-            var sourceElementType = sourcePropertyType.GetGenericArguments()[0];
-            var destinationElementType = destinationPropertyType.GetGenericArguments()[0];
+            var sourceElementType = sourcePropertyType.GetGenericArguments()[0]!;
+            var destinationElementType = destinationPropertyType.GetGenericArguments()[0]!;
 
             var toListCall = Expression.Call(
                 EnumerableToList(destinationElementType),
