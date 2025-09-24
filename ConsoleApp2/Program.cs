@@ -1,4 +1,6 @@
 ﻿
+using System;
+using System.Diagnostics;
 using ConsoleApp2.Filters;
 using ConsoleAppFramework;
 using Microsoft.Extensions.Configuration;
@@ -14,6 +16,7 @@ var app = ConsoleApp.Create()
         NLog.LogManager.Configuration = new NLogLoggingConfiguration(config.GetSection("nlog"));
         // LogManager.Configuration.
         logging.ClearProviders();
+        logging.AddDebug();
         logging.AddNLog();
     })
     .ConfigureServices((services) =>

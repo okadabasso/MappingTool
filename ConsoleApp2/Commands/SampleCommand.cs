@@ -21,7 +21,7 @@ public class Sample1Command
         var destination = new DestinationData();
 
         var context = new MappingContext();
-        var mapper = new MapperFactory<SourceData, DestinationData>().CreateMapper();
+        var mapper = new MapperFactory<SourceData, DestinationData>(allowRecursion: true).CreateMapper();
         mapper.Map(source, destination);
 
         _logger.LogInformation("Mapping completed: Id={Id}, Name={Name}", destination.Id, destination.Name);
@@ -43,7 +43,7 @@ public class Sample1Command
         };
         source.Detail.Parent = source; // Create circular reference
         var context = new MappingContext();
-        var mapper = new MapperFactory<SourceData, DestinationData>().CreateMapper();
+        var mapper = new MapperFactory<SourceData, DestinationData>(allowRecursion: true).CreateMapper();
         var destination = mapper.Map(source);
 
         _logger.LogInformation("Mapping completed: Id={Id}, Name={Name}", destination.Id, destination.Name);
@@ -172,7 +172,7 @@ public class Sample1Command
         };
         // 循環参照オブジェクト
         source.Detail.Parent = source; // Create circular reference
-        var mapper = new MapperFactory<SourceData, DestinationData>().CreateMapper() as SimpleMapper<SourceData, DestinationData>;
+        var mapper = new MapperFactory<SourceData, DestinationData>(allowRecursion: true).CreateMapper();
         if (mapper == null)
         {
             Console.WriteLine("Mapper is null");
@@ -202,7 +202,7 @@ public class Sample1Command
         
         // 循環参照オブジェクト
         source = source with { Detail = source.Detail with { Parent = source } };
-        var mapper = new MapperFactory<SourceRecord, DestinationRecord>().CreateMapper();
+        var mapper = new MapperFactory<SourceRecord, DestinationRecord>(allowRecursion: true).CreateMapper();
         if (mapper == null)
         {
             Console.WriteLine("Mapper is null");
@@ -248,7 +248,7 @@ public class Sample1Command
         };
         // 循環参照オブジェクト
         source.Detail.Parent = source; // Create circular reference
-        var mapper = new MapperFactory<SourceData, DestinationData>().CreateMapper() as SimpleMapper<SourceData, DestinationData>;
+        var mapper = new MapperFactory<SourceData, DestinationData>(allowRecursion: true).CreateMapper();
         if (mapper == null)
         {
             Console.WriteLine("Mapper is null");
@@ -301,7 +301,7 @@ public class Sample1Command
         };
         // 循環参照オブジェクト
         source.Detail.Parent = source; // Create circular reference
-        var mapper = new MapperFactory<SourceData, DestinationData>(allowRecursion: true).CreateMapper();
+        var mapper = new MapperFactory<SourceData, DestinationData>(allowRecursion: true, logger: _logger).CreateMapper();
         if (mapper == null)
         {
             Console.WriteLine("Mapper is null");
@@ -331,14 +331,61 @@ public class Sample1Command
         }
 
     }
+    [Command("method9")]
+    public void Execute9()
+    {
+        var source = new SourceData
+        {
+            Id = 1,
+            Name = "Source",
+            Detail = new NestedSource
+            {
+                Id = 2,
+                Name = "Nested Source",
+                Parent = null!
+            },
+            Details = new List<NestedSource>
+            {
+                new NestedSource { Id = 3, Name = "List Item 1", Parent = null! },
+                new NestedSource { Id = 4, Name = "List Item 2", Parent = null! },
+                new NestedSource { Id = 5, Name = "List Item 3", Parent = null! },
 
-    public static void DebugView(Expression expr)
+            }
+        };
+        // 循環参照オブジェクト
+        source.Detail.Parent = source; // Create circular reference
+        var destination = new DestinationData(source);
+
+        _logger.LogInformation("Mapping completed: Id={Id}, Name={Name}", destination.Id, destination.Name);
+        if (destination.Detail != null)
+        {
+            _logger.LogInformation("Nested Mapping: Id={Id}, Name={Name}", destination.Detail.Id, destination.Detail.Name);
+            if (destination.Detail.Parent != null)
+            {
+                _logger.LogInformation("Deep Nested Mapping: Id={Id}, Name={Name}", destination.Detail.Parent.Id, destination.Detail.Parent.Name);
+            }
+            else
+            {
+                _logger.LogInformation("Deep Nested Mapping: Parent is null");
+            }
+            if (destination.Details != null)
+            {
+                foreach (var item in destination.Details)
+                {
+                    _logger.LogInformation("List Item: Id={Id}, Name={Name}", item.Id, item.Name);
+                }
+            }
+        }
+
+    }
+
+    public void DebugView(Expression expr)
     {
         // DebugView プロパティをリフレクションで取得
         var debugViewProp = typeof(Expression).GetProperty("DebugView", BindingFlags.Instance | BindingFlags.NonPublic);
         string debugView = (string)(debugViewProp?.GetValue(expr) ?? "");
 
-        Console.WriteLine(debugView);
+        _logger.LogDebug(debugView);
     }
     class SourceData
     {
@@ -354,6 +401,15 @@ public class Sample1Command
         public string Name { get; set; } = null!;
         public NestedDestination? Detail { get; set; } = null;
         public List<NestedDestination> Details { get; set; } = new List<NestedDestination>();
+        public DestinationData()
+        {
+
+        }
+        public DestinationData(SourceData source, ILogger? logger = null)
+        {
+            var mapper = new MapperFactory<SourceData, DestinationData>(allowRecursion: true, logger: logger).CreateMapper();
+            mapper.Map(source, this);
+        }
     }
     class NestedSource
     {

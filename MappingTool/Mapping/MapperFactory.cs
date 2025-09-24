@@ -1,12 +1,11 @@
 namespace MappingTool.Mapping
 {
     using System;
-    using System.Collections.Concurrent;
     using System.Collections.Generic;
-    using System.Diagnostics.CodeAnalysis;
     using System.Linq.Expressions;
     using System.Reflection;
 
+    using Microsoft.Extensions.Logging;
     public class MapperFactory<TSource, TDestination>
         where TSource : notnull
         where TDestination : notnull
@@ -38,26 +37,26 @@ namespace MappingTool.Mapping
 
         private ITypeAnalyzer _typeAnalyzer = new TypeAnalyzer();
         public static MethodInfo EnumerableSelect(Type enumerableType, Type elementType) => typeof(Enumerable)
-        .GetMethods(BindingFlags.Public | BindingFlags.Static)
-        .First(m => m.Name == "Select" && m.GetParameters().Length == 2)
-        .MakeGenericMethod(enumerableType, elementType);
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .First(m => m.Name == "Select" && m.GetParameters().Length == 2)
+            .MakeGenericMethod(enumerableType, elementType);
 
         public static MethodInfo EnumerableToList(Type elementType) => typeof(Enumerable)
-        .GetMethods(BindingFlags.Public | BindingFlags.Static)
-        .First(m => m.Name == "ToList" && m.GetParameters().Length == 1)
-        .MakeGenericMethod(elementType);
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .First(m => m.Name == "ToList" && m.GetParameters().Length == 1)
+            .MakeGenericMethod(elementType);
 
         public static MethodInfo EnumerableToArray(Type elementType) => typeof(Enumerable)
-        .GetMethods(BindingFlags.Public | BindingFlags.Static)
-        .First(m => m.Name == "ToArray" && m.GetParameters().Length == 1)
-        .MakeGenericMethod(elementType);
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .First(m => m.Name == "ToArray" && m.GetParameters().Length == 1)
+            .MakeGenericMethod(elementType);
 
-        
+        private readonly ILogger? _logger;
 
         static MapperFactory()
         {
         }
-        public MapperFactory(bool allowRecursion = false, int maxRecursionDepth = DefaultMaxRecursionDepth)
+        public MapperFactory(bool allowRecursion = false, int maxRecursionDepth = DefaultMaxRecursionDepth, ILogger? logger = null)
         {
             if (allowRecursion)
             {
@@ -67,6 +66,7 @@ namespace MappingTool.Mapping
             {
                 _maxRecursionDepth = 1;
             }
+            _logger = logger;
         }
         public IMapper<TSource, TDestination> CreateMapper()
         {
@@ -151,10 +151,6 @@ namespace MappingTool.Mapping
                 {
                     continue;
                 }
-                if (destinationProperty.PropertyType.IsClass && destinationProperty.PropertyType != typeof(string))
-                {
-                    continue;
-                }
                 var sourceProperty = sourceType.GetProperty(destinationProperty.Name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
                 if (sourceProperty == null)
                 {
@@ -164,15 +160,15 @@ namespace MappingTool.Mapping
                 }
                 if (sourceProperty.CanRead)
                 {
-                    var sourceAccess = CreatePropertyValueExpression(
+                    var sourcePropertyValue = CreatePropertyValueExpression(
                         destinationProperty.PropertyType,
                         sourceType,
                         sourceProperty,
                         source,
                         mappingContextParameter);
-                    
-                    var destinationAccess = Expression.Property(Expression.Convert(destination, destinationType), destinationProperty);
-                    var assign = Expression.Assign(destinationAccess, sourceAccess);
+
+                    var destinationPropertyAccess = Expression.Property(Expression.Convert(destination, destinationType), destinationProperty);
+                    var assign = Expression.Assign(destinationPropertyAccess, sourcePropertyValue);
 
                     expressionList.Add(assign);
                 }
@@ -182,7 +178,7 @@ namespace MappingTool.Mapping
 
             var block = Expression.Block(expressionList);
             var lambda = Expression.Lambda<Action<MappingContext, object, object>>(block, mappingContextParameter, source, destination);
-
+            DebugView(lambda);
             return lambda.Compile();
         }
         private Func<MappingContext, object, object> CreateMemberInit(
@@ -231,7 +227,6 @@ namespace MappingTool.Mapping
 
             var memberInit = Expression.MemberInit(newExpression, memberBindings);
             var lambda = Expression.Lambda<Func<MappingContext, object, object>>(memberInit, mappingContextParameter, source);
-            Console.WriteLine($"nest {_currentRecursionDepth}");
             DebugView(lambda);
 
             return lambda.Compile();
@@ -265,38 +260,49 @@ namespace MappingTool.Mapping
                 }
                 if (sourceProperty.CanRead)
                 {
-                        var expression = CreatePropertyValueExpression(
-                        parameter.ParameterType,
-                        sourceType,
-                        sourceProperty,
-                        sourceParameter,
-                        mappingContextParameter);
+                    var expression = CreatePropertyValueExpression(
+                    parameter.ParameterType,
+                    sourceType,
+                    sourceProperty,
+                    sourceParameter,
+                    mappingContextParameter);
                     arguments.Add(Expression.Convert(expression, parameter.ParameterType));
-                
+
                 }
             }
             var newExpression = Expression.New(constructor, arguments);
 
             var lambda = Expression.Lambda<Func<MappingContext, object, object>>(newExpression, mappingContextParameter, sourceParameter);
-            DebugView(lambda);
+             DebugView(lambda);
+
             return lambda.Compile();
         }
         private ConstructorInfo? GetPrimaryConstructor(Type type)
         {
-            // すべてのパブリックなインスタンスコンストラクターを取得
             var constructors = type.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
 
-            // 主コンストラクターを特定
-            var primaryConstructor = constructors.FirstOrDefault(c =>
-            {
-                var parameters = c.GetParameters();
-                // 主コンストラクターの条件: パラメーターの数がプロパティの数と一致
-                return parameters.Length == type.GetProperties().Length &&
-                    parameters.All(p => type.GetProperty(p.Name ?? "", BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance) != null);
-            });
-            return primaryConstructor;
+            var validConstructors = constructors
+                .Where(c => c.GetParameters().Length > 0)
+                .Select(c => new
+                {
+                    Constructor = c,
+                    MatchCount = GetMatchingParameterCount(c, type),
+                    ParameterCount = c.GetParameters().Length
+                })
+                .Where(x => x.MatchCount >= 1)
+                .OrderByDescending(x => x.MatchCount)
+                .ThenByDescending(x => x.ParameterCount);
+
+            return validConstructors.FirstOrDefault()?.Constructor;
         }
 
+        private int GetMatchingParameterCount(ConstructorInfo constructor, Type type)
+        {
+            return constructor.GetParameters().Count(parameter =>
+                !string.IsNullOrEmpty(parameter.Name) &&
+                type.GetProperty(parameter.Name, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance) != null
+            );
+        }
         private Func<MappingContext, object, object> GetOrCreatePropertyInitializer(
             Type sourceType,
             Type destinationType,
@@ -436,7 +442,14 @@ namespace MappingTool.Mapping
             var circularOrObject = Expression.Condition(
                 circularCheck,
                 Expression.Constant(null, typeof(object)),
-                invokeFunc
+                Expression.Block(
+                    CreateMarkAsMapped(
+                        destinationPropertyType,
+                        propertyExpression,
+                        mappingContextParameter
+                    ),
+                    invokeFunc
+                )
             );
             var nullOrObject = Expression.Condition(
                 Expression.Equal(propertyExpression, Expression.Constant(null, sourcePropertyType)),
@@ -454,11 +467,7 @@ namespace MappingTool.Mapping
             ParameterExpression mappingContextParameter
         )
         {
-            var toListCall = Expression.Call(
-                EnumerableToArray(destinationPropertyType.GetElementType()!),
-                Expression.Convert(sourceAccess, sourcePropertyType)
-            );
-            return Expression.Convert(toListCall, destinationPropertyType);
+            return Expression.Convert(sourceAccess, destinationPropertyType);
         }
         private Expression CreatePrimitiveEnumerableExpression(
             Type sourcePropertyType,
@@ -467,9 +476,12 @@ namespace MappingTool.Mapping
             ParameterExpression mappingContextParameter
         )
         {
+            var sourceElementType = sourcePropertyType.GetGenericArguments()[0];
+            var destinationElementType = destinationPropertyType.GetGenericArguments()[0];
+
             var toListCall = Expression.Call(
-                EnumerableToList(destinationPropertyType.GetGenericArguments()[0]),
-                Expression.Convert(sourceAccess, typeof(IEnumerable<>).MakeGenericType(sourcePropertyType.GetGenericArguments()[0]))
+                EnumerableToList(destinationElementType),
+                Expression.Convert(sourceAccess, typeof(IEnumerable<>).MakeGenericType(sourceElementType))
             );
             return Expression.Convert(toListCall, destinationPropertyType);
         }
@@ -484,29 +496,11 @@ namespace MappingTool.Mapping
             var sourceElementType = sourcePropertyType.GetGenericArguments()[0];
             var destinationElementType = destinationPropertyType.GetGenericArguments()[0];
 
-            var objectInitializer = CreateObjectInitializer(
+            var selectCall = CreateEnumerableSelectExpression(
                 sourceElementType,
                 destinationElementType,
+                sourceAccess,
                 mappingContextParameter
-            );
-
-            var sourceParam = Expression.Parameter(sourceElementType, "x");
-            var selectorLambda = Expression.Lambda(
-                Expression.Convert(
-                    Expression.Invoke(
-                        Expression.Constant(objectInitializer),
-                        mappingContextParameter,
-                        sourceParam
-                    ),
-                    destinationElementType
-                ),
-                sourceParam
-            );
-
-            var selectCall = Expression.Call(
-                EnumerableSelect(sourceElementType, destinationElementType),
-                Expression.Convert(sourceAccess, typeof(IEnumerable<>).MakeGenericType(sourceElementType)),
-                selectorLambda
             );
             var toListCall = Expression.Call(
                 EnumerableToList(destinationElementType),
@@ -524,6 +518,35 @@ namespace MappingTool.Mapping
             var sourceElementType = sourcePropertyType.GetElementType()!;
             var destinationElementType = destinationPropertyType.GetElementType()!;
 
+            var selectCall = CreateEnumerableSelectExpression(
+                sourceElementType,
+                destinationElementType,
+                sourceAccess,
+                mappingContextParameter
+            );
+            var toArrayCall = Expression.Call(
+                EnumerableToArray(destinationElementType),
+                selectCall
+            );
+            return Expression.Convert(toArrayCall, destinationPropertyType);
+        }
+        /// <summary>
+        /// IEnumerable の各要素をマッピングする Select 式を作成する
+        /// 
+        /// x => x.Select(y => Map(y))
+        /// </summary>
+        /// <param name="sourceElementType"></param>
+        /// <param name="destinationElementType"></param>
+        /// <param name="sourceAccess"></param>
+        /// <param name="mappingContextParameter"></param>
+        /// <returns></returns>
+        private Expression CreateEnumerableSelectExpression(
+            Type sourceElementType,
+            Type destinationElementType,
+            Expression sourceAccess,
+            ParameterExpression mappingContextParameter
+        )
+        {
             var objectInitializer = CreateObjectInitializer(
                 sourceElementType,
                 destinationElementType,
@@ -548,13 +571,9 @@ namespace MappingTool.Mapping
                 Expression.Convert(sourceAccess, typeof(IEnumerable<>).MakeGenericType(sourceElementType)),
                 selectorLambda
             );
-            var toListCall = Expression.Call(
-                EnumerableToArray(destinationElementType),
-                selectCall
-            );
-            return Expression.Convert(toListCall, destinationPropertyType);
+            return selectCall;
         }
-        public Expression CreateCircularCheck(
+        private Expression CreateCircularCheck(
             Type destinationType,
             Expression propertyExpression,
             ParameterExpression mappingContextParameter
@@ -572,6 +591,21 @@ namespace MappingTool.Mapping
 
             return checkMapped;
         }
+        private Expression CreateMarkAsMapped(
+            Type destinationType,
+            Expression propertyExpression,
+            ParameterExpression mappingContextParameter
+        )
+        {
+            var markAsMapped = typeof(MappingContext).GetMethod("MarkAsMapped")!;
+            var mark = Expression.Call(
+                mappingContextParameter,
+                markAsMapped,
+                Expression.Convert(propertyExpression, typeof(object)) // 明示的に object 型に変換
+            );
+
+            return mark;
+        }
 
         private bool EnterRecursion()
         {
@@ -587,13 +621,18 @@ namespace MappingTool.Mapping
             _currentRecursionDepth = Math.Max(0, _currentRecursionDepth - 1);
             return true;
         }
-        public static void DebugView(Expression expr)
-        {
-            // DebugView プロパティをリフレクションで取得
-            var debugViewProp = typeof(Expression).GetProperty("DebugView", BindingFlags.Instance | BindingFlags.NonPublic);
-            string debugView = (string)(debugViewProp?.GetValue(expr) ?? "");
 
-            Console.WriteLine(debugView);
+        public void DebugView(Expression expr)
+        {
+            if (_logger != null)
+            {
+                // DebugView プロパティをリフレクションで取得
+                var debugViewProp = typeof(Expression).GetProperty("DebugView", BindingFlags.Instance | BindingFlags.NonPublic);
+                string debugView = (string)(debugViewProp?.GetValue(expr) ?? "");
+
+                _logger?.LogDebug(debugView);
+                    
+            }
         }
 
     }

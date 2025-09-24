@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceFolder}/ConsoleApp2/bin/Debug/net9.0/ConsoleApp2.dll",
-            "args": ["simple-mapping", "method3"],
+            "args": ["sample", "method7"],
             "cwd": "${workspaceFolder}/ConsoleApp2",
             "console": "internalConsole",
             "stopAtEntry": false
