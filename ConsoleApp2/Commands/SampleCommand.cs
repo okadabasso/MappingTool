@@ -199,7 +199,7 @@ public class Sample1Command
     public void Execute6()
     {
         var source = new SourceRecord(1, "Source", new NestedSourceRecord(2, "Nested Source", null));
-        
+
         // 循環参照オブジェクト
         source = source with { Detail = source.Detail with { Parent = source } };
         var mapper = new MapperFactory<SourceRecord, DestinationRecord>(allowRecursion: true).CreateMapper();
@@ -378,6 +378,20 @@ public class Sample1Command
         }
 
     }
+    [Command("method10")]
+    public void Execute10()
+    {
+        var source = new SourceStruct
+        {
+            Id = 1,
+            Name = "Source",
+        };
+        var mapper = new MapperFactory<SourceStruct, DestinationStruct>(logger: _logger).CreateMapper();
+        var destination = mapper.Map(source);
+
+        _logger.LogInformation("Mapping completed: Id={Id}, Name={Name}", destination.Id, destination.Name);
+    }
+
 
     public void DebugView(Expression expr)
     {
@@ -427,4 +441,27 @@ public class Sample1Command
     record NestedSourceRecord(int Id, string Name, SourceRecord? Parent);
     record DestinationRecord(int Id, string Name, NestedDestinationRecord? Detail);
     record NestedDestinationRecord(int Id, string Name, DestinationRecord? Parent);
+
+    public struct SourceStruct
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+
+        public SourceStruct()
+        {
+            Id = 0;
+            Name = "";   
+        }
+    }
+    public struct DestinationStruct
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+
+        public DestinationStruct()
+        {
+            Id = 0;
+            Name = "";   
+        }
+    }
 }

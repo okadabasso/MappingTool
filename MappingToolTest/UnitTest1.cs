@@ -70,7 +70,7 @@ namespace MappingToolTest
             });
         }
         [Fact]
-        public void Map_Struct_WIthNoConstructor_ShouldThrowException()
+        public void Map_Struct_MapPropertiesCorrectly_WithDefaultConstructor()
         {
             // Arrange
             var source = new Source { Id = 2, Name = "StructTest" };

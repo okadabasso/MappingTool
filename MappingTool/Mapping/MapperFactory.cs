@@ -225,7 +225,7 @@ namespace MappingTool.Mapping
             }
 
 
-            var memberInit = Expression.MemberInit(newExpression, memberBindings);
+            var memberInit = Expression.Convert(Expression.MemberInit(newExpression, memberBindings), typeof(object));
             var lambda = Expression.Lambda<Func<MappingContext, object, object>>(memberInit, mappingContextParameter, source);
             DebugView(lambda);
 
@@ -270,7 +270,7 @@ namespace MappingTool.Mapping
 
                 }
             }
-            var newExpression = Expression.New(constructor, arguments);
+            var newExpression = Expression.Convert(Expression.New(constructor, arguments), typeof(object));
 
             var lambda = Expression.Lambda<Func<MappingContext, object, object>>(newExpression, mappingContextParameter, sourceParameter);
              DebugView(lambda);
