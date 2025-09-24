@@ -52,11 +52,12 @@ namespace MappingTool.Mapping
             .MakeGenericMethod(elementType);
 
         private readonly ILogger? _logger;
+    private readonly bool _preserveReferences;
 
         static MapperFactory()
         {
         }
-        public MapperFactory(bool allowRecursion = false, int maxRecursionDepth = DefaultMaxRecursionDepth, ILogger? logger = null)
+        public MapperFactory(bool allowRecursion = false, int maxRecursionDepth = DefaultMaxRecursionDepth, ILogger? logger = null, bool preserveReferences = false)
         {
             if (allowRecursion)
             {
@@ -67,6 +68,7 @@ namespace MappingTool.Mapping
                 _maxRecursionDepth = 1;
             }
             _logger = logger;
+            _preserveReferences = preserveReferences;
         }
         public IMapper<TSource, TDestination> CreateMapper()
         {
@@ -82,7 +84,7 @@ namespace MappingTool.Mapping
 
             Func<MappingContext, TSource, TDestination> objectInitializer = (context, source) => (TDestination)initializer(context, source)!;
             Action<MappingContext, TSource, TDestination> propertyAssign = (context, source, destination) => assign(context, source, destination);
-            return new SimpleMapper<TSource, TDestination>(objectInitializer, propertyAssign);
+            return new SimpleMapper<TSource, TDestination>(objectInitializer, propertyAssign, _preserveReferences);
         }
         public Func<MappingContext, object, object> CreateObjectInitializer(
             Type sourceType,
@@ -130,6 +132,25 @@ namespace MappingTool.Mapping
                 throw new InvalidOperationException($"Type {destinationType.Name} is not a class or struct.");
             }
             ExitRecursion();
+            if (_preserveReferences)
+            {
+                var inner = objectInitializer;
+                Func<MappingContext, object, object> wrapper = (context, source) =>
+                {
+                    if (source == null) return null!;
+                    if (context.TryGetMappedDestination(source, out var existing))
+                    {
+                        return existing!;
+                    }
+                    var created = inner(context, source);
+                    if (created != null)
+                    {
+                        context.SetMappedDestination(source, created);
+                    }
+                    return created!;
+                };
+                return wrapper;
+            }
             return objectInitializer;
 
         }
@@ -415,6 +436,47 @@ namespace MappingTool.Mapping
                 );
                 return Expression.Convert(objectInitializer, destinationPropertyType);
             }
+            // Basic enum conversions: string->enum, enum->string, numeric->enum
+            if (destinationPropertyType.IsEnum)
+            {
+                // sourceAccess may be string, numeric or enum
+                if (sourceProperty.PropertyType == typeof(string))
+                {
+                    // Enum.Parse(destinationType, sourceString, ignoreCase:true)
+                    var parseMethod = typeof(Enum).GetMethod("Parse", new[] { typeof(Type), typeof(string), typeof(bool) })!;
+                    var callParse = Expression.Call(parseMethod, Expression.Constant(destinationPropertyType), sourceAccess, Expression.Constant(true));
+                    return Expression.Convert(callParse, destinationPropertyType);
+                }
+                // numeric or enum -> enum: just convert
+                return Expression.Convert(sourceAccess, destinationPropertyType);
+            }
+            if (sourceProperty.PropertyType.IsEnum && destinationPropertyType == typeof(string))
+            {
+                // enum -> string: call ToString()
+                var toStringMethod = typeof(object).GetMethod("ToString", Type.EmptyTypes)!;
+                return Expression.Call(Expression.Convert(sourceAccess, typeof(object)), toStringMethod);
+            }
+
+            // Numeric widening: allow conversions between numeric types, handling nullable source/destination
+            var sourceUnderlying = Nullable.GetUnderlyingType(sourceProperty.PropertyType) ?? sourceProperty.PropertyType;
+            var destUnderlying = Nullable.GetUnderlyingType(destinationPropertyType) ?? destinationPropertyType;
+            if (_typeAnalyzer.IsNumber(destUnderlying) && _typeAnalyzer.IsNumber(sourceUnderlying))
+            {
+                var sourceIsNullable = Nullable.GetUnderlyingType(sourceProperty.PropertyType) != null;
+                var destIsNullable = Nullable.GetUnderlyingType(destinationPropertyType) != null;
+
+                if (sourceIsNullable && !destIsNullable)
+                {
+                    // if source.HasValue ? (TDest)source.Value : default(TDest)
+                    var hasValue = Expression.Property(sourceAccess, "HasValue");
+                    var value = Expression.Property(sourceAccess, "Value");
+                    var converted = Expression.Convert(value, destUnderlying);
+                    var defaultValue = Expression.Default(destUnderlying);
+                    return Expression.Condition(hasValue, converted, defaultValue);
+                }
+                // other cases: direct convert (nullable->nullable, non-nullable->nullable, non-nullable->non-nullable)
+                return Expression.Convert(sourceAccess, destinationPropertyType);
+            }
 
             var directAccess = Expression.Property(Expression.Convert(sourceParameter, sourceType), sourceProperty);
             return Expression.Convert(directAccess, destinationPropertyType);
@@ -434,23 +496,56 @@ namespace MappingTool.Mapping
                 mappingContextParameter,
                 propertyExpression
             );
-            var circularCheck = CreateCircularCheck(
-                destinationPropertyType,
-                propertyExpression,
-                mappingContextParameter
-            );
-            var circularOrObject = Expression.Condition(
-                circularCheck,
-                Expression.Constant(null, typeof(object)),
-                Expression.Block(
-                    CreateMarkAsMapped(
-                        destinationPropertyType,
-                        propertyExpression,
-                        mappingContextParameter
-                    ),
-                    invokeFunc
-                )
-            );
+            Expression circularOrObject;
+            if (_preserveReferences)
+            {
+                // If preserving references, try to get existing mapped destination and return it if present,
+                // otherwise create, store and return the new destination.
+                // mappingContext.TryGetMappedDestination(source, out dest)
+                var tryGet = typeof(MappingContext).GetMethod("TryGetMappedDestination")!;
+                var outVar = Expression.Variable(typeof(object), "existingDest");
+                var tryGetCall = Expression.Call(mappingContextParameter, tryGet, Expression.Convert(propertyExpression, typeof(object)), outVar);
+
+                var setMapped = typeof(MappingContext).GetMethod("SetMappedDestination")!;
+                // Create a block: if TryGetMappedDestination(...) then existingDest else { var newObj = invokeFunc; SetMappedDestination(source,newObj); newObj }
+                var newObjVar = Expression.Variable(typeof(object), "newObj");
+                var assignNewObj = Expression.Assign(newObjVar, invokeFunc);
+                var setCall = Expression.Call(mappingContextParameter, setMapped, Expression.Convert(propertyExpression, typeof(object)), newObjVar);
+                var blockIfNotFound = Expression.Block(
+                    new[] { newObjVar },
+                    assignNewObj,
+                    setCall,
+                    newObjVar
+                );
+
+                circularOrObject = Expression.Condition(
+                    tryGetCall,
+                    outVar,
+                    blockIfNotFound
+                );
+                // wrap variables
+                circularOrObject = Expression.Block(new[] { outVar }, circularOrObject);
+            }
+            else
+            {
+                var circularCheck = CreateCircularCheck(
+                    destinationPropertyType,
+                    propertyExpression,
+                    mappingContextParameter
+                );
+                circularOrObject = Expression.Condition(
+                    circularCheck,
+                    Expression.Constant(null, typeof(object)),
+                    Expression.Block(
+                        CreateMarkAsMapped(
+                            destinationPropertyType,
+                            propertyExpression,
+                            mappingContextParameter
+                        ),
+                        invokeFunc
+                    )
+                );
+            }
             var nullOrObject = Expression.Condition(
                 Expression.Equal(propertyExpression, Expression.Constant(null, sourcePropertyType)),
                 Expression.Constant(null, typeof(object)),

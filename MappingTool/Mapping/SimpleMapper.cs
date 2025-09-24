@@ -17,16 +17,18 @@ namespace MappingTool.Mapping
     {
 
 
-        private Action<MappingContext, TSource, TDestination> _propertyAssign = null!;
-        public Func<MappingContext, TSource, TDestination> _objectInitializer = null!;
+    private Action<MappingContext, TSource, TDestination> _propertyAssign = null!;
+    public Func<MappingContext, TSource, TDestination> _objectInitializer = null!;
+    private readonly bool _preserveReferences;
 
         private static Type _sourceType = typeof(TSource);
         private static Type _destinationType = typeof(TDestination);
 
-        internal SimpleMapper(Func<MappingContext, TSource, TDestination> objectInitializer, Action<MappingContext, TSource, TDestination> propertyAssign)
+        internal SimpleMapper(Func<MappingContext, TSource, TDestination> objectInitializer, Action<MappingContext, TSource, TDestination> propertyAssign, bool preserveReferences = false)
         {
             _objectInitializer = objectInitializer;
             _propertyAssign = propertyAssign;
+            _preserveReferences = preserveReferences;
         }
         public void Map(TSource source, TDestination destination)
         {
@@ -35,6 +37,11 @@ namespace MappingTool.Mapping
                 throw new ArgumentNullException("Source or destination cannot be null.");
             }
             var context = new MappingContext();
+            if (_preserveReferences)
+            {
+                context.EnablePreserveReferences();
+                context.SetMappedDestination(source, destination);
+            }
             _propertyAssign(context, source, destination);
         }
         public TDestination Map(TSource source)
@@ -44,7 +51,8 @@ namespace MappingTool.Mapping
                 throw new ArgumentNullException("Source cannot be null.");
             }
             var context = new MappingContext();
-            context.MarkAsMapped(source);
+            if (_preserveReferences) context.EnablePreserveReferences();
+            else context.MarkAsMapped(source);
             return _objectInitializer(context, source);
         }
         public IEnumerable<TDestination> Map(IEnumerable<TSource> source)
@@ -53,8 +61,8 @@ namespace MappingTool.Mapping
             {
                 throw new ArgumentNullException("Source cannot be null.");
             }
-
             var context = new MappingContext();
+            if (_preserveReferences) context.EnablePreserveReferences();
             var list = source.Select(item => _objectInitializer(context, item)).ToList();
             return list;
         }
