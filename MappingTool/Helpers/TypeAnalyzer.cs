@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Reflection;
 
-namespace MappingTool.Mapping;
+namespace MappingTool.Helpers;
 
 public interface ITypeAnalyzer
 {

@@ -1,4 +1,4 @@
-namespace MappingTool.Mapping;
+namespace MappingTool.Helpers;
 
 using System;
 using System.Collections.Concurrent;

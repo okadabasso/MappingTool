@@ -174,40 +174,57 @@ public class MapperFactory<TSource, TDestination>
                     }
                     context.SetMappedDestination(source, placeholder);
 
-                    var created = inner(context, source);
-
-                    if (created != null)
+                    var replaced = false;
+                    try
                     {
-                        // If inner created a different instance than our placeholder,
-                        // copy the public writable properties from the created instance
-                        // into the placeholder, then register the placeholder as the
-                        // canonical mapped destination. This preserves reference
-                        // identity for any nested references that already hold the
-                        // placeholder.
-                        if (!object.ReferenceEquals(placeholder, created))
-                        {
-                            foreach (var prop in destinationType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
-                            {
-                                if (!prop.CanRead || !prop.CanWrite) continue;
-                                var value = prop.GetValue(created);
-                                prop.SetValue(placeholder, value);
-                            }
-                            context.SetMappedDestination(source, placeholder);
-                            return placeholder!;
-                        }
-                        // Otherwise it's the same instance; just register it and return.
-                        context.SetMappedDestination(source, created);
-                        return created!;
-                    }
+                        var created = inner(context, source);
 
-                // If creation failed, remove placeholder and return null.
-                // (SetMappedDestination with null fallback behavior uses MappedObjects
-                // for legacy mode; here preserveReferences is enabled so we remove key.)
-                if (context.PreservedReferences != null)
-                {
-                    context.PreservedReferences.Remove(source);
-                }
-                return null!;
+                        if (created != null)
+                        {
+                            // If inner created a different instance than our placeholder,
+                            // copy the public writable properties from the created instance
+                            // into the placeholder, then register the placeholder as the
+                            // canonical mapped destination. This preserves reference
+                            // identity for any nested references that already hold the
+                            // placeholder.
+                            if (!object.ReferenceEquals(placeholder, created))
+                            {
+                                foreach (var prop in destinationType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+                                {
+                                    if (!prop.CanRead || !prop.CanWrite) continue;
+                                    var value = prop.GetValue(created);
+                                    prop.SetValue(placeholder, value);
+                                }
+                                context.SetMappedDestination(source, placeholder);
+                                replaced = true;
+                                return placeholder!;
+                            }
+                            // Otherwise it's the same instance; just register it and return.
+                            context.SetMappedDestination(source, created);
+                            replaced = true;
+                            return created!;
+                        }
+
+                        // If creation failed, return null; finally will clean up placeholder
+                        return null!;
+                    }
+                    finally
+                    {
+                        // If we didn't successfully replace the placeholder with the
+                        // final instance, remove the placeholder registration so that
+                        // the mapping context doesn't leak incomplete mappings.
+                        if (!replaced)
+                        {
+                            if (context.PreservedReferences != null)
+                            {
+                                context.PreservedReferences.Remove(source);
+                            }
+                            else
+                            {
+                                context.MappedObjects.Remove(source);
+                            }
+                        }
+                    }
             };
             return wrapper;
         }
