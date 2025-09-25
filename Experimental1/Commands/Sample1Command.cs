@@ -13,25 +13,18 @@ public class Sample1Command
         _logger = logger;
     }
 
-    [Command("method1")]
+    [Command("map-list")]
     public void Execute1()
     {
         var sample = new Sample1();
         sample.SampleMethod1();
        
     }
-    [Command("method3")]
-    public void Execute3()
+    [Command("map-object")]
+    public void Execute2()
     {
         var sample = new Sample1();
-        sample.SampleMethod3();
-
-    }
-    [Command("method4")]
-    public void Execute4()
-    {
-        var sample = new Sample1();
-        sample.SampleMethod4();
+        sample.SampleMethod2();
 
     }
 }

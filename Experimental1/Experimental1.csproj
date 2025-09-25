@@ -21,8 +21,9 @@
   <ItemGroup>
     <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-  <ItemGroup>
-    <!-- Include ConsoleApp1 source folders except Program.cs, obj, bin and generated AssemblyInfo to avoid duplicate top-level statements/attributes -->
+  <ItemGroup><!-- Include ConsoleApp1 source folders except Program.cs, obj, bin and generated AssemblyInfo to avoid duplicate top-level statements/attributes -->
     <!-- Sources are placed under this project's folder (Experimental1). Rely on SDK default globbing to include them. -->
+  
+    <ProjectReference Include="..\MappingTool\MappingTool.csproj" />
   </ItemGroup>
 </Project>
