@@ -22,6 +22,21 @@ class TypeCheckCommand
         TypeCheck(typeof(Foo));
 
     }
+    [Command("checkuri")]
+    public void CheckUri()
+    {
+        TypeCheck(typeof(Uri));
+        var constructors = typeof(Uri).GetConstructors();
+        foreach (var constructor in constructors)
+        {
+            var parameters = constructor.GetParameters();
+            Console.WriteLine($"Constructor: {constructor.Name}");
+            foreach (var parameter in parameters)
+            {
+                Console.WriteLine($"Parameter: {parameter.Name} Type: {parameter.ParameterType.Name}");
+            }
+        }
+    }
     private static void TypeCheck(Type t)
     {
         if (t.IsGenericType)

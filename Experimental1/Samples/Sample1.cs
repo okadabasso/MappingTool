@@ -4,11 +4,17 @@ using System.Linq.Expressions;
 using System.Reflection;
 using AutoMapper.Internal;
 using Experimental1.Data;
-using Experimental1.Shared;
-
+using Microsoft.Extensions.Logging;
+using MappingTool.Mapping;
 public class Sample1
 {
-    public void SampleMethod1()
+    private readonly ILogger<Sample1> _logger;
+
+    public Sample1(ILogger<Sample1> logger)
+    {
+        _logger = logger;
+    }
+    public void MapList()
     {
         var source = new List<SourceData>(){
             new SourceData { Id = 1, Name = "Test1" },
@@ -16,25 +22,26 @@ public class Sample1
             new SourceData { Id = 3, Name = "Test3" }
         };
 
-        var mapper = MapperFactory.CreateMapper<SourceData, DestinationData>();
-        var destination = mapper.Map5(source);
+        var mapper  = new MapperFactory<SourceData, DestinationData>().CreateMapper();
+        var destination = mapper.Map(source);
         foreach (var item in destination)
         {
             Console.WriteLine($"Id: {item.Id}, Name: {item.Name}");
         }
     }
-    public void SampleMethod2()
+    public void MapSingleObject()
     {
         try
         {
             var source = new SourceData { Id = 1, Name = "Test", Description = "This is a test." };
-            var mapper = new SimpleMapper<SourceData, Foo>();
-            var destination = mapper.Map5(source);
+            var mapper = new MapperFactory<SourceData, DestinationData>().CreateMapper();
+            var destination = mapper.Map(source);
             Console.WriteLine($"Id: {destination.Id}, Name: {destination.Name}");
         }
         catch (Exception ex)
         {
             Console.WriteLine(ex.Message);
+            Console.WriteLine(ex.StackTrace);
         }
     }
     public void SampleMethod3()
