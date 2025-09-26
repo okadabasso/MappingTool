@@ -10,19 +10,8 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceFolder}/Experimental1\\bin\\Debug\\net9.0\\Experimental1.dll",
-            "args": ["expression-compose", "execute"],
+            "args": ["sample1", "map-object"],
             "cwd": "${workspaceFolder}/Experimental1",
-            "console": "internalConsole",
-            "stopAtEntry": false
-        },
-        {
-            "name": "sample method9",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build",
-            "program": "${workspaceFolder}/Experimental2/bin/Debug/net9.0/Experimental2.dll",
-            "args": ["sample", "method9"],
-            "cwd": "${workspaceFolder}/Experimental2",
             "console": "internalConsole",
             "stopAtEntry": false
         },

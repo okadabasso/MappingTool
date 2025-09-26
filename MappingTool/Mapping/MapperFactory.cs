@@ -264,7 +264,12 @@ public class MapperFactory<TSource, TDestination>
                     sourceProperty,
                     source,
                     mappingContextParameter);
-
+                if(sourcePropertyValue == null)
+                {
+                    var defaultParametr = Expression.Default(destinationProperty.PropertyType);
+                    expressionList.Add(defaultParametr);
+                    continue;
+                }
                 var destinationPropertyAccess = Expression.Property(Expression.Convert(destination, destinationType), destinationProperty);
                 var assign = Expression.Assign(destinationPropertyAccess, sourcePropertyValue);
 
@@ -287,7 +292,8 @@ public class MapperFactory<TSource, TDestination>
         var constructor = destinationType.GetConstructor(Type.EmptyTypes);
         if (constructor == null)
         {
-            throw new InvalidOperationException($"Type {typeof(TDestination).Name} does not have a parameterless constructor.");
+            var copy = CreateCopyConstuctor(sourceType, destinationType, mappingContextParameter);
+            return copy;
         }
         var newExpression = Expression.New(constructor);
         var source = Expression.Parameter(typeof(object), "source");
@@ -317,6 +323,13 @@ public class MapperFactory<TSource, TDestination>
                     sourceProperty,
                     source,
                     mappingContextParameter);
+                                    if(expression == null)
+                {
+                    var defaultParametr = Expression.Default(destinationProperty.PropertyType);
+                    memberBindings.Add(Expression.Bind(destinationProperty, defaultParametr));
+                    continue;
+                }
+
                 var binding = Expression.Bind(destinationProperty, expression);
                 memberBindings.Add(binding);
             }
@@ -329,6 +342,24 @@ public class MapperFactory<TSource, TDestination>
 
         return lambda.Compile();
     }
+    private Func<MappingContext, object, object> CreateCopyConstuctor(
+        Type sourceType,
+        Type destinationType,
+        ParameterExpression mappingContextParameter)
+    {
+
+        var constructor = destinationType.GetConstructor(new Type[] { sourceType });
+        if (constructor != null)
+        {
+            var source = Expression.Parameter(typeof(object), "source");
+            var newExpression = Expression.Convert(Expression.New(constructor, Expression.Convert(source, sourceType)), typeof(object));
+            var lambda = Expression.Lambda<Func<MappingContext, object, object>>(newExpression, mappingContextParameter, source);
+            DebugView(lambda);
+            return lambda.Compile();
+        }
+        return default!;        
+    }
+
     private Func<MappingContext, object, object> CreateConstructorInititializer(
         Type sourceType,
         Type destinationType,
@@ -364,6 +395,7 @@ public class MapperFactory<TSource, TDestination>
                 sourceProperty,
                 sourceParameter,
                 mappingContextParameter);
+                
                 arguments.Add(Expression.Convert(expression, parameter.ParameterType));
 
             }

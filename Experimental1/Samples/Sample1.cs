@@ -36,7 +36,7 @@ public class Sample1
             var source = new SourceData { Id = 1, Name = "Test", Description = "This is a test." };
             var mapper = new MapperFactory<SourceData, DestinationData>().CreateMapper();
             var destination = mapper.Map(source);
-            Console.WriteLine($"Id: {destination.Id}, Name: {destination.Name}");
+            Console.WriteLine($"Id: {destination.Id}, Name: {destination.Name} website: {destination.Website}"); // Website should be default Uri
         }
         catch (Exception ex)
         {

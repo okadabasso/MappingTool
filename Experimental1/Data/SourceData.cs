@@ -23,4 +23,5 @@ public class SourceData
     public char Initial { get; set; }
     public string Email { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
+    public Uri Website { get; set; } = new Uri("http://localhost");
 }
